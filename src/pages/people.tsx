@@ -78,7 +78,7 @@ export default function PeoplePage() {
               const p = personById(c.personId)!
               return (
                 <li key={c.id}>
-                  <Link to={`/people/chat/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted">
+                  <Link to={`/people/chat/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted active:bg-muted">
                     <Avatar size="lg">
                       <AvatarFallback>{initials(p)}</AvatarFallback>
                     </Avatar>

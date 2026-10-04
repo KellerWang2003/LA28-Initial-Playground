@@ -66,21 +66,32 @@ type Props = {
 
 const overlaps = (a: DOMRect, b: DOMRect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
 
-// Hide marker labels ([data-marker-label]) that would overlap another label or a
-// marker body ([data-marker-body]). The selected marker (raised z-index) wins.
+// Hide marker text that would collide, like map apps do.
+// 1. Countdown badges ([data-marker-badge]) only avoid each other; the soonest
+//    deadline (smallest data-urgency, an ISO time) wins.
+// 2. Name labels ([data-marker-label]) avoid badges, other labels and marker
+//    bodies ([data-marker-body]); the selected marker (raised z-index) wins.
 function declutterLabels(markers: Iterable<mapboxgl.Marker>) {
   const els = [...markers].map((m) => m.getElement()).sort((a, b) => Number(b.style.zIndex || 0) - Number(a.style.zIndex || 0))
   const bodies = els.flatMap((el) => [...el.querySelectorAll('[data-marker-body]')].map((b) => b.getBoundingClientRect()))
   const placed: DOMRect[] = []
-  for (const el of els) {
-    const label = el.querySelector<HTMLElement>('[data-marker-label]')
-    if (!label) continue
-    label.style.visibility = ''
-    const rect = label.getBoundingClientRect()
-    const hidden = placed.some((r) => overlaps(r, rect)) || bodies.some((r) => overlaps(r, rect))
-    label.style.visibility = hidden ? 'hidden' : ''
+
+  function place(node: HTMLElement, avoidBodies: boolean) {
+    node.style.visibility = ''
+    const rect = node.getBoundingClientRect()
+    const hidden = placed.some((r) => overlaps(r, rect)) || (avoidBodies && bodies.some((r) => overlaps(r, rect)))
+    node.style.visibility = hidden ? 'hidden' : ''
     if (!hidden) placed.push(rect)
   }
+
+  els
+    .flatMap((el) => [...el.querySelectorAll<HTMLElement>('[data-marker-badge]')])
+    .sort((a, b) => (a.dataset.urgency ?? '').localeCompare(b.dataset.urgency ?? ''))
+    .forEach((badge) => place(badge, false))
+  els.forEach((el) => {
+    const label = el.querySelector<HTMLElement>('[data-marker-label]')
+    if (label) place(label, true)
+  })
 }
 
 function boundsOf(coords: LngLat[]) {

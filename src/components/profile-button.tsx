@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 export function ProfileButton({ className }: { className?: string }) {
   return (
     <Link to="/profile" aria-label="Profile" className={cn('rounded-full', className)}>
-      <Avatar size="lg">
+      <Avatar className="size-12">
         <AvatarFallback>
           <User className="size-5" />
         </AvatarFallback>

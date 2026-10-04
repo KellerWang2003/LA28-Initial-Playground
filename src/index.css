@@ -127,6 +127,35 @@
   html {
     @apply font-sans;
     }
+
+  /* Behave like an app, not a page: the frame never scrolls, bounces or
+     pull-to-refreshes; only inner lists scroll. No tap flash, long-press menu,
+     text selection or double-tap zoom on UI. */
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  body {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+  }
+  input,
+  textarea,
+  [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+  img,
+  svg {
+    -webkit-user-drag: none;
+  }
 }
 @theme {
   /* Pin highlight: spins like a coin */

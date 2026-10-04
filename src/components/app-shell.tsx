@@ -14,7 +14,7 @@ const tabs = [
 export function AppShell() {
   return (
     <div className="relative h-dvh overflow-hidden bg-background">
-      <main className="no-scrollbar h-full overflow-y-auto">
+      <main className="no-scrollbar h-full overflow-y-auto overscroll-contain">
         <Outlet />
       </main>
 
@@ -29,7 +29,7 @@ export function AppShell() {
               to={to}
               className={({ isActive }) =>
                 cn(
-                  'flex h-13 w-17 flex-col items-center justify-center gap-0.5 rounded-full text-[11px] text-muted-foreground',
+                  'flex h-13 w-17 flex-col items-center justify-center gap-0.5 rounded-full text-[11px] text-muted-foreground transition-transform active:scale-95',
                   isActive && 'bg-muted font-medium text-foreground',
                 )
               }

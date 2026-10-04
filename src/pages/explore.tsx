@@ -1,12 +1,15 @@
 import { useRef, useState, type ReactNode, type UIEvent } from 'react'
 import { useNavigate } from 'react-router'
-import { Check, ChevronRight, Clock, Gift, Layers, Lock, LocateFixed, Navigation, Radio, Search, Tv, Users, X } from 'lucide-react'
+import { Check, ChevronRight, Clock, Gift, Layers, Lock, LocateFixed, Radio, Search, Tv, Users, X } from 'lucide-react'
 import { MapView, type MapPadding, type MapStyle, type MapViewHandle } from '@/components/map-view'
 import { BottomSheet, type Snap } from '@/components/bottom-sheet'
 import { ProfileButton } from '@/components/profile-button'
 import { PassportButton } from '@/components/passport-button'
-import { KindIcon, PinShape, PinStatusChip } from '@/components/pin-art'
-import { ShapeIcon } from '@/components/shape-art'
+import { KindIcon, PinShape, PinStatusChip, PinStatusText } from '@/components/pin-art'
+import { ShapeIcon, ShapeSticker } from '@/components/shape-art'
+import { VenueOutline } from '@/components/venue-art'
+import { ImagePlaceholder } from '@/components/image-placeholder'
+import { LiveTimer } from '@/components/live-timer'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -21,6 +24,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { useCollected } from '@/lib/collected'
 import { cn } from '@/lib/utils'
+import { pinCountdownTarget } from '@/data/la28'
 import { FAKE_USER_LOCATION, allItems, distance, layers, mapLayers, type Layer, type MapItem } from '@/data/map-layers'
 
 const mapStyles: { id: MapStyle; label: string }[] = [
@@ -34,10 +38,23 @@ const USER_MARKER = 'me'
 const LABEL_ZOOM = 12
 
 // Space taken by overlays, so the map centers things in the visible area
-const SHEET_PADDING: MapPadding = { top: 112, bottom: 340, left: 64, right: 72 }
-const CARDS_PADDING: MapPadding = { top: 96, bottom: 300, left: 48, right: 48 }
+// Bottom also leaves room for labels hanging under markers
+const SHEET_PADDING: MapPadding = { top: 112, bottom: 400, left: 72, right: 80 }
+// Cards are taller for pins (photo strip), so leave more room under the selected marker
+const CARDS_PADDING: MapPadding = { top: 96, bottom: 400, left: 48, right: 48 }
+// Placeholder photos per place until real ones exist
+const PLACE_PHOTOS = 5
 
-const initialBounds = [...mapLayers.pins.map((i) => i.coords), FAKE_USER_LOCATION]
+// Frame the items nearest you rather than all of LA; the rest are a pan away
+const NEAREST = 15
+const nearestCoords = (items: MapItem[]) => [
+  ...[...items]
+    .sort((a, b) => distance(a.coords, FAKE_USER_LOCATION) - distance(b.coords, FAKE_USER_LOCATION))
+    .slice(0, NEAREST)
+    .map((i) => i.coords),
+  FAKE_USER_LOCATION,
+]
+const initialBounds = nearestCoords(mapLayers.pins)
 
 export default function ExplorePage() {
   const mapRef = useRef<MapViewHandle>(null)
@@ -54,8 +71,7 @@ export default function ExplorePage() {
   const [showLabels, setShowLabels] = useState(false)
 
   const visibleItems = mapLayers[layer]
-  // Prefer the current layer's copy (a drop's card differs under Drops)
-  const itemById = (id: string) => visibleItems.find((i) => i.id === id) ?? allItems.find((i) => i.id === id)!
+  const itemById = (id: string) => allItems.find((i) => i.id === id)!
   const markers = [
     ...visibleItems.map((i) => ({ id: i.id, coords: i.coords, offset: i.offset })),
     { id: USER_MARKER, coords: FAKE_USER_LOCATION },
@@ -89,8 +105,7 @@ export default function ExplorePage() {
   function changeLayer(next: Layer) {
     setLayer(next)
     clearSelection()
-    const coords = mapLayers[next].map((i) => i.coords)
-    if (coords.length) mapRef.current?.fitTo([...coords, FAKE_USER_LOCATION], SHEET_PADDING)
+    if (mapLayers[next].length) mapRef.current?.fitTo(nearestCoords(mapLayers[next]), SHEET_PADDING)
   }
 
   function renderMarker(id: string) {
@@ -107,7 +122,8 @@ export default function ExplorePage() {
   }
 
   return (
-    <div className="absolute inset-0">
+    // Starts below the status bar so the map never sits under it (iOS blurs whatever is there)
+    <div className="absolute inset-x-0 top-[env(safe-area-inset-top)] bottom-0">
       <MapView
         ref={mapRef}
         markers={markers}
@@ -122,14 +138,20 @@ export default function ExplorePage() {
         threeD={threeD}
       />
 
-      {/* Top right: profile + map options */}
-      <div className="absolute top-[calc(env(safe-area-inset-top)+12px)] right-4 z-20 flex flex-col items-end gap-3">
+      {/* Top right: profile + map options (hidden while the sheet is fully open) */}
+      <div
+        className={cn(
+          'absolute top-3 right-4 z-20 flex flex-col items-end gap-3 transition-[opacity,translate] duration-300',
+          snap === 'full' && 'pointer-events-none -translate-y-2 opacity-0',
+        )}
+        aria-hidden={snap === 'full'}
+      >
         <ProfileButton className="shadow-md" />
         <div className="flex flex-col overflow-hidden rounded-full border bg-background shadow-md">
           <Button
             variant="ghost"
             size="icon-lg"
-            className="rounded-none text-xs font-semibold"
+            className="rounded-none text-sm font-semibold"
             aria-label={threeD ? 'Switch to 2D' : 'Switch to 3D'}
             onClick={() => setThreeD(!threeD)}
           >
@@ -179,23 +201,23 @@ export default function ExplorePage() {
         header={
           <div className="px-4">
             <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => setSnap('full')}
                 placeholder="Search pins, events, places, people"
-                className="h-10 rounded-full pl-9"
+                className="h-12 rounded-full pl-11 text-base"
               />
             </div>
-            <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 py-3">
+            <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 py-3">
               {layers.map((l) => (
                 <button
                   key={l.id}
                   type="button"
                   onClick={() => changeLayer(l.id)}
                   className={cn(
-                    'h-8 shrink-0 rounded-full border px-3 text-sm',
+                    'h-10 shrink-0 rounded-full border px-4 text-[15px] transition-transform active:scale-95',
                     layer === l.id && 'border-primary bg-primary text-primary-foreground',
                   )}
                 >
@@ -235,18 +257,41 @@ function ItemMarker({
   collected: boolean
   showLabel: boolean
 }) {
+  // Locked and expiring pins carry a countdown that never hides
+  const countdown = !!item.pin && !!pinCountdownTarget(item.pin) && !collected
   return (
     <div className="relative flex cursor-pointer flex-col items-center [perspective:400px]">
-      <div data-marker-body className={cn('transition-transform', selected && 'scale-125')}>
+      <div data-marker-body className={cn('relative transition-transform', selected && 'scale-125')}>
         <MarkerVisual item={item} selected={selected} collected={collected} />
+        {countdown && !selected && (
+          <span
+            data-marker-badge
+            data-urgency={pinCountdownTarget(item.pin!)}
+            className="absolute bottom-full left-1/2 mb-0.5 -translate-x-1/2"
+          >
+            <PinStatusChip pin={item.pin!} />
+          </span>
+        )}
       </div>
-      {/* Name under every marker; pins add their status when zoomed in */}
-      <div data-marker-label className={cn('absolute top-full flex w-max max-w-28 flex-col items-center gap-1', selected ? 'mt-3' : 'mt-1')}>
-        <span className="line-clamp-2 text-center text-[11px] leading-tight font-semibold [text-shadow:0_0_3px_var(--background),0_0_3px_var(--background),0_0_3px_var(--background)]">
-          {item.label}
-        </span>
-        {item.pin && (selected || showLabel) && (
-          <PinStatusChip status={item.pin.status} label={selected ? item.pin.label : item.pin.short} collected={collected} />
+      {/* Name under every marker; games add sport + timer, pins their status when zoomed in */}
+      <div
+        data-marker-label
+        className={cn(
+          'absolute top-full flex w-max max-w-32 flex-col items-center gap-0.5 text-center [text-shadow:0_0_3px_var(--background),0_0_3px_var(--background),0_0_3px_var(--background)]',
+          selected ? 'mt-3' : 'mt-1',
+        )}
+      >
+        <span className="line-clamp-2 text-[11px] leading-tight font-semibold">{item.label}</span>
+        {item.subtitle && (
+          <span className="flex max-w-full items-center gap-1 text-[10px] leading-tight font-medium text-muted-foreground">
+            {item.shape && <ShapeIcon shape={item.shape} className="size-3 shrink-0" strokeWidth={2.5} />}
+            <span className="truncate">{item.subtitle}</span>
+          </span>
+        )}
+        {item.liveSince && <LiveTimer since={item.liveSince} className="mt-0.5 [text-shadow:none]" />}
+        {/* Full status when selected; "Open" when zoomed in (countdowns sit on top) */}
+        {item.pin && (selected || (showLabel && !countdown)) && (
+          <PinStatusChip pin={item.pin} collected={collected} verbose={selected} />
         )}
       </div>
     </div>
@@ -266,11 +311,28 @@ function MarkerVisual({ item, selected, collected }: { item: MapItem; selected: 
     )
   }
 
-  // Crew: avatar with their initial
-  if (item.kind === 'crew') {
+  // People: avatar with their initial
+  if (item.kind === 'person') {
     return (
       <div className="flex size-10 items-center justify-center rounded-full border-2 border-background bg-foreground text-sm font-semibold text-background shadow-md ring-2 ring-foreground">
         {item.label[0]}
+      </div>
+    )
+  }
+
+  // Games: a tile with the venue's outline (live adds a dot)
+  if (item.venue) {
+    return (
+      <div
+        className={cn(
+          'relative flex h-11 w-[68px] items-center justify-center rounded-xl border bg-background shadow-md',
+          selected && 'border-primary bg-primary text-primary-foreground',
+        )}
+      >
+        <VenueOutline venue={item.venue} className="h-8 w-14" />
+        {item.liveSince && (
+          <span className="absolute -top-1 -right-1 size-3 animate-pulse rounded-full border-2 border-background bg-red-500" />
+        )}
       </div>
     )
   }
@@ -284,7 +346,7 @@ function MarkerVisual({ item, selected, collected }: { item: MapItem; selected: 
       )}
     >
       <ShapeIcon shape={item.shape!} className="size-5" />
-      {item.kind === 'live' && (
+      {item.liveSince && (
         <span className="absolute -top-0.5 -right-0.5 size-3 animate-pulse rounded-full border-2 border-background bg-red-500" />
       )}
     </div>
@@ -320,19 +382,35 @@ function SheetList({
     return <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nothing saved yet</p>
   }
 
+  const row = (i: MapItem) => (
+    <ListRow
+      key={i.id}
+      leading={<ItemThumb item={i} collected={collected.includes(i.id)} />}
+      title={i.title}
+      subtitle={[q && layerLabel(i.layer), i.place.name, i.status].filter(Boolean).join(' · ')}
+      done={collected.includes(i.id)}
+      onClick={() => onSelect(i.id)}
+    />
+  )
+
+  // Layers with sections (Watch parties) list each section separately, in layer order
+  const sections = q ? [] : [...new Set(mapLayers[layer].flatMap((i) => (i.section ? [i.section] : [])))]
+  if (sections.length) {
+    return (
+      <div className="space-y-4">
+        {sections.map((section) => (
+          <ListSection key={section} title={section}>
+            {results.filter((i) => i.section === section).map(row)}
+          </ListSection>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <ListSection title={q ? 'Results' : 'Nearby'}>
       {results.length === 0 && <p className="px-4 py-6 text-sm text-muted-foreground">No matches</p>}
-      {results.map((i) => (
-        <ListRow
-          key={i.id}
-          leading={<ItemThumb item={i} collected={collected.includes(i.id)} />}
-          title={i.title}
-          subtitle={[q && layerLabel(i.layer), i.place.name, i.status].filter(Boolean).join(' · ')}
-          done={collected.includes(i.id)}
-          onClick={() => onSelect(i.id)}
-        />
-      ))}
+      {results.map(row)}
     </ListSection>
   )
 }
@@ -352,6 +430,13 @@ function ItemThumb({ item, collected }: { item: MapItem; collected?: boolean }) 
     return (
       <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted">
         <PinShape shape={item.pin!.shape} status={item.pin!.status} collected={collected} className="size-9" />
+      </div>
+    )
+  }
+  if (item.venue) {
+    return (
+      <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border bg-background">
+        <VenueOutline venue={item.venue} className="w-10" />
       </div>
     )
   }
@@ -383,7 +468,7 @@ function ListRow({
   onClick: () => void
 }) {
   return (
-    <button type="button" onClick={onClick} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted">
+    <button type="button" onClick={onClick} className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-muted active:bg-muted">
       {leading ?? <div className="size-12 shrink-0 rounded-xl border bg-muted" />}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{title}</p>
@@ -427,28 +512,52 @@ function NearbyCards({
     <div className="absolute inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),12px)+76px)] z-20">
       <div
         onScroll={onScroll}
-        className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-1"
+        className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-[7.5vw] pb-1"
       >
         {items.map((item) => {
           const done = collected.includes(item.id)
-          const directions = `https://www.google.com/maps/dir/?api=1&destination=${item.coords[1]},${item.coords[0]}`
+          // Info only; the whole card opens the detail page
           return (
-            <article key={item.id} className="w-[85%] shrink-0 snap-start rounded-2xl border bg-background p-4 shadow-lg">
+            <article
+              key={item.id}
+              role="link"
+              tabIndex={0}
+              aria-label={item.title}
+              onClick={() => navigate(item.to)}
+              onKeyDown={(e) => e.key === 'Enter' && navigate(item.to)}
+              className="w-[85vw] shrink-0 cursor-pointer snap-center rounded-2xl border bg-background p-4 shadow-lg transition-transform active:scale-[0.98]"
+            >
               <div className="flex items-start gap-3">
                 <ItemThumb item={item} collected={done} />
                 <div className="min-w-0 flex-1">
                   <h3 className="line-clamp-2 font-heading leading-tight font-semibold">{item.title}</h3>
                   <p className="truncate text-xs text-muted-foreground">{item.place.name}</p>
+                  {item.subtitle && (
+                    <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
+                      {item.shape && <ShapeIcon shape={item.shape} className="size-3 shrink-0" />}
+                      {item.subtitle.split(' · ')[0]}
+                    </p>
+                  )}
                 </div>
-                <Button variant="ghost" size="icon-sm" aria-label="Close" onClick={onClose} className="-mt-1 -mr-1">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Close"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onClose()
+                  }}
+                  className="-mt-1 -mr-1"
+                >
                   <X />
                 </Button>
               </div>
 
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                {item.liveSince && <LiveTimer since={item.liveSince} className="h-5 px-2 text-xs shadow-none" />}
                 <Badge variant="secondary" className="max-w-full">
                   <StatusIcon item={item} />
-                  <span className="truncate">{item.status}</span>
+                  <span className="truncate tabular-nums">{item.pin ? <PinStatusText pin={item.pin} verbose /> : item.status}</span>
                 </Badge>
                 {item.meta && (
                   <Badge variant="outline" className="max-w-full">
@@ -458,20 +567,40 @@ function NearbyCards({
                 )}
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <Button size="lg" disabled={done} onClick={() => navigate(item.action.to)}>
-                  {done ? 'Collected' : item.action.label}
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  nativeButton={false}
-                  render={<a href={directions} target="_blank" rel="noreferrer" />}
+              {/* Pins: photos of the place so you know what you're looking for */}
+              {item.pin && (
+                <div
+                  aria-label={`Photos of ${item.place.name}`}
+                  className="no-scrollbar -mx-4 mt-3 flex snap-x gap-2 overflow-x-auto overscroll-x-contain scroll-px-4 px-4"
                 >
-                  <Navigation data-icon="inline-start" />
-                  Navigate
-                </Button>
-              </div>
+                  {Array.from({ length: PLACE_PHOTOS }, (_, i) => (
+                    <ImagePlaceholder key={i} className="h-20 w-28 shrink-0 snap-start" />
+                  ))}
+                </div>
+              )}
+
+              {item.lines && item.lines.length > 0 && (
+                <div className="mt-3 space-y-0.5 text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground">Coming up</p>
+                  {item.lines.map((line) => (
+                    <p key={line} className="truncate">
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Events, games and shops award a pin; it isn't drawn on the map */}
+              {item.reward && (
+                <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted px-2.5 py-2 text-xs">
+                  <ShapeSticker shape={item.reward.shape} className="size-6 text-foreground" />
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="text-muted-foreground">Earn the </span>
+                    <span className="font-medium">{item.reward.name}</span>
+                  </span>
+                  {collected.includes(item.reward.id) && <Check className="size-4 text-muted-foreground" />}
+                </div>
+              )}
             </article>
           )
         })}
@@ -482,8 +611,8 @@ function NearbyCards({
 
 function StatusIcon({ item }: { item: MapItem }) {
   if (item.pin?.status === 'locked') return <Lock data-icon="inline-start" />
-  if (item.kind === 'live') return <Radio data-icon="inline-start" />
-  if (item.kind === 'watch') return <Tv data-icon="inline-start" />
+  if (item.liveSince && item.kind === 'game') return <Radio data-icon="inline-start" />
+  if (item.section === 'Public') return <Tv data-icon="inline-start" />
   if (item.kind === 'shop') return <Gift data-icon="inline-start" />
   return <Clock data-icon="inline-start" />
 }

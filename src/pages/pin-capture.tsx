@@ -6,6 +6,7 @@ import { PinShape } from '@/components/pin-art'
 import { collectPin, useCollected } from '@/lib/collected'
 import { cn } from '@/lib/utils'
 import { pinById, pinKindLabel, placeById } from '@/data/la28'
+import { PIN_VALUE } from '@/data/passport'
 
 // Solo pin capture. Location is faked ("I'm here" always works) and there is
 // no camera yet: the shutter button simulates the capture.
@@ -49,7 +50,7 @@ export default function PinCapturePage() {
 
       {/* Camera viewfinder goes here later */}
       <div className="mx-4 mt-5 flex min-h-0 flex-1 items-center justify-center rounded-3xl border-2 border-dashed text-sm text-muted-foreground">
-        {done ? 'Stamped into your Passport' : 'Camera'}
+        {done ? `Stamped into your Passport · +${PIN_VALUE[pin.rarity]} Torches` : 'Camera'}
       </div>
 
       <div className="flex shrink-0 justify-center gap-2 px-4 pt-4">

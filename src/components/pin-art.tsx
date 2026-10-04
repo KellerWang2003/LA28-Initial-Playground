@@ -1,6 +1,7 @@
 import { CalendarDays, Check, Clock, Lock, MapPin, Radio, Store, Tv, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { PinStatus, Shape } from '@/data/la28'
+import { pinCountdownTarget, type Pin, type PinStatus, type Shape } from '@/data/la28'
+import { formatCountdown, useRemaining } from '@/lib/clock'
 import { ShapeSticker } from '@/components/shape-art'
 import type { ItemKind } from '@/data/map-layers'
 
@@ -11,13 +12,13 @@ export function KindIcon({ kind, ...props }: IconProps & { kind: ItemKind }) {
   switch (kind) {
     case 'event':
       return <CalendarDays {...props} />
-    case 'live':
+    case 'game':
       return <Radio {...props} />
     case 'watch':
       return <Tv {...props} />
     case 'shop':
       return <Store {...props} />
-    case 'crew':
+    case 'person':
       return <User {...props} />
     case 'pin':
       return <MapPin {...props} />
@@ -51,17 +52,33 @@ export function PinShape({
   )
 }
 
+// Pin status as text: a ticking countdown for locked and expiring pins.
+// `verbose` spells it out ("Unlocks in 19:42") instead of the map form ("19:42").
+export function PinStatusText({ pin, verbose }: { pin: Pin; verbose?: boolean }) {
+  const target = pinCountdownTarget(pin)
+  if (!target) return <>{verbose ? pin.label : pin.short}</>
+  return <Countdown pin={pin} target={target} verbose={verbose} />
+}
+
+function Countdown({ pin, target, verbose }: { pin: Pin; target: string; verbose?: boolean }) {
+  const left = useRemaining(target)
+  const time = formatCountdown(left)
+  if (pin.status === 'locked') return <>{left === 0 ? 'Open now' : verbose ? `Unlocks in ${time}` : time}</>
+  return <>{left === 0 ? 'Ended' : verbose ? `Ends in ${time}` : `${time} left`}</>
+}
+
 // Compact status label for the map, outlined in the status color
-export function PinStatusChip({ status, label, collected }: { status: PinStatus; label: string; collected?: boolean }) {
+export function PinStatusChip({ pin, collected, verbose }: { pin: Pin; collected?: boolean; verbose?: boolean }) {
+  const status = pin.status
   return (
     <span
       className={cn(
-        'flex items-center gap-1 rounded-full border-2 border-current bg-background px-1.5 py-0.5 text-[11px] leading-none font-semibold whitespace-nowrap shadow',
+        'flex items-center gap-1 rounded-full border-2 border-current bg-background px-1.5 py-0.5 text-[11px] leading-none font-semibold whitespace-nowrap tabular-nums shadow',
         collected ? 'text-foreground/50' : statusColor[status],
       )}
     >
       {collected ? <Check className="size-3" /> : status === 'locked' ? <Lock className="size-3" /> : status === 'expiring' ? <Clock className="size-3" /> : null}
-      <span className="text-foreground">{collected ? 'Collected' : label}</span>
+      <span className="text-foreground">{collected ? 'Collected' : <PinStatusText pin={pin} verbose={verbose} />}</span>
     </span>
   )
 }

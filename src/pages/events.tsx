@@ -1,12 +1,11 @@
 import { useState, type UIEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link } from 'react-router'
 import { Plus, Sparkles } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { ImagePlaceholder } from '@/components/image-placeholder'
 import { Placeholder } from '@/components/placeholder'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { EVENTS, eventAttendance, eventTypeLabel, flag, formatDate, formatTime, placeById, type GameEvent } from '@/data/la28'
@@ -18,26 +17,18 @@ const featured = events.slice(0, 3)
 const when = (e: GameEvent) => `${formatDate(e.date)} · ${formatTime(e.time)}`
 
 export default function EventsPage() {
-  const navigate = useNavigate()
-
   return (
     <div className="pb-28">
       <PageHeader
         title="Events"
         action={
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="New"
-              className={cn(buttonVariants({ variant: 'outline', size: 'icon-lg' }), 'rounded-full')}
-            >
-              <Plus className="size-5" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => navigate('/events/host')}>Host a gathering</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/events/create')}>Create an event</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/events/invite')}>Invite people</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Link
+            to="/events/create"
+            aria-label="New event"
+            className={cn(buttonVariants({ variant: 'outline', size: 'icon-lg' }), 'rounded-full')}
+          >
+            <Plus className="size-5" />
+          </Link>
         }
       />
 
@@ -54,7 +45,7 @@ export default function EventsPage() {
           <ul className="-mx-4">
             {events.map((e) => (
               <li key={e.id}>
-                <Link to={`/events/${e.id}`} className="flex gap-3 px-4 py-3 hover:bg-muted">
+                <Link to={`/events/${e.id}`} className="flex gap-3 px-4 py-3 hover:bg-muted active:bg-muted">
                   <ImagePlaceholder className="size-20 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <Badge variant="outline">{eventTypeLabel[e.type]}</Badge>
@@ -95,7 +86,7 @@ function FeaturedCarousel() {
 
   return (
     <div>
-      <div onScroll={onScroll} className="no-scrollbar -mx-4 flex snap-x snap-mandatory overflow-x-auto">
+      <div onScroll={onScroll} className="no-scrollbar -mx-4 flex snap-x snap-mandatory overscroll-x-contain overflow-x-auto">
         {featured.map((e) => (
           <Link key={e.id} to={`/events/${e.id}`} className="w-full shrink-0 snap-start px-4">
             <ImagePlaceholder className="aspect-[16/10] w-full rounded-2xl" />
