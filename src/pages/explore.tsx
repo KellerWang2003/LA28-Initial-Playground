@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode, type UIEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { Check, ChevronRight, Clock, Gift, Layers, Lock, LocateFixed, Radio, Search, Tv, Users, X } from 'lucide-react'
-import { MapView, type MapPadding, type MapStyle, type MapViewHandle } from '@/components/map-view'
+import { MapView, UserDot, type MapPadding, type MapStyle, type MapViewHandle } from '@/components/map-view'
 import { BottomSheet, type Snap } from '@/components/bottom-sheet'
 import { ProfileButton } from '@/components/profile-button'
 import { PassportButton } from '@/components/passport-button'
@@ -351,10 +351,6 @@ function MarkerVisual({ item, selected, collected }: { item: MapItem; selected: 
       )}
     </div>
   )
-}
-
-function UserDot() {
-  return <div className="size-4 rounded-full border-2 border-white bg-blue-500 shadow ring-6 ring-blue-500/20" />
 }
 
 // ---- Sheet list ----

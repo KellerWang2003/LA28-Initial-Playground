@@ -61,6 +61,8 @@ type Props = {
   initialPadding: MapPadding
   mapStyle?: MapStyle
   threeD?: boolean
+  // false for a static preview map (no pan, zoom or rotate)
+  interactive?: boolean
   ref?: Ref<MapViewHandle>
 }
 
@@ -111,6 +113,7 @@ export function MapView({
   initialPadding,
   mapStyle = 'light',
   threeD = false,
+  interactive = true,
   ref,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -145,6 +148,7 @@ export function MapView({
       bounds: boundsOf(initialBounds),
       fitBoundsOptions: { padding: initialPadding },
       attributionControl: false,
+      interactive,
     })
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'top-left')
     map.on('click', (e) => {
@@ -248,4 +252,9 @@ export function MapView({
       {Object.entries(elements).map(([id, el]) => createPortal(renderMarker(id), el, id))}
     </>
   )
+}
+
+// "You are here" marker
+export function UserDot() {
+  return <div className="size-4 rounded-full border-2 border-white bg-blue-500 shadow ring-6 ring-blue-500/20" />
 }

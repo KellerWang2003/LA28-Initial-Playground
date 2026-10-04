@@ -254,3 +254,22 @@ export function distance(a: LngLat, b: LngLat) {
   const dy = a[1] - b[1]
   return Math.sqrt(dx * dx + dy * dy)
 }
+
+// Mocked travel times from you, in minutes, from straight-line distance:
+// a detour factor for streets, then rough speeds plus waiting/parking time.
+export function travelFromYou(to: LngLat) {
+  const km = distance(FAKE_USER_LOCATION, to) * 111
+  const route = km * 1.3
+  return {
+    km,
+    walk: Math.max(1, Math.round((route / 5) * 60)),
+    transit: Math.round(8 + (route / 18) * 60),
+    drive: Math.round(4 + (route / 28) * 60),
+  }
+}
+
+// 0.43 -> '450 m', 3.21 -> '3.2 km'
+export const formatKm = (km: number) => (km < 1 ? `${Math.max(50, Math.round(km * 20) * 50)} m` : `${km.toFixed(1)} km`)
+
+// 12 -> '12 min', 95 -> '1 h 35 min'
+export const formatMinutes = (min: number) => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ''}`)

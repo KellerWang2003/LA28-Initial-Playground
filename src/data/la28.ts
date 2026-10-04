@@ -114,6 +114,12 @@ export type PinKind = 'place' | 'shop' | 'venue' | 'event' | 'half'
 // locked: not collectable yet; open: collectable; expiring: open, closing soon
 export type PinStatus = 'locked' | 'open' | 'expiring'
 
+// What you do on the spot to collect a pin. Still being explored: tasks are
+// data so different mixes can be tried per pin without touching the UI.
+export type CollectTaskKind = 'visit' | 'photo' | 'find' | 'scan' | 'ticket' | 'stay'
+// detail overrides the default how-to line for that kind
+export type CollectTask = { kind: CollectTaskKind; detail?: string }
+
 export type Pin = {
   id: string
   name: string
@@ -128,6 +134,8 @@ export type Pin = {
   // Countdown targets: when a locked pin opens, when an expiring one ends
   opensAt?: string
   closesAt?: string
+  // Defaults by kind when missing (see collectTasks)
+  tasks?: CollectTask[]
   // Only tourist-attraction pins show on the map. Event, venue and shop pins are
   // earned there, but the map shows the event or shop itself.
   onMap: boolean
@@ -327,11 +335,13 @@ export const CREW: CrewMember[] = [
 // ─────────────────────────────────────────────
 export const PINS: Pin[] = [
   // Tourist attractions: the only pins on the map
-  { id: 'p_griffith', name: 'Griffith Observatory Pin', place: 'griffith', kind: 'place', shape: 'telescope', rarity: 'Legendary', status: 'locked', label: 'Unlocks at 7:40 PM', short: '20 min', opensAt: '2028-07-20T19:40', onMap: true },
+  { id: 'p_griffith', name: 'Griffith Observatory Pin', place: 'griffith', kind: 'place', shape: 'telescope', rarity: 'Legendary', status: 'locked', label: 'Unlocks at 7:40 PM', short: '20 min', opensAt: '2028-07-20T19:40', onMap: true,
+    tasks: [{ kind: 'visit' }, { kind: 'photo', detail: 'Snap the city lights from the west terrace after it unlocks.' }] },
   { id: 'p_hermosa_drop', name: 'Hermosa Beach Pier Pin', place: 'hermosa', kind: 'place', shape: 'shell', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_union', name: 'Union Station Pin', place: 'union', kind: 'place', shape: 'train', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_pier', name: 'Santa Monica Pier Pin', place: 'smpier', kind: 'place', shape: 'ferris-wheel', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
-  { id: 'p_pier_half', name: 'Pier Half Pin', place: 'smpier', kind: 'half', shape: 'ferris-wheel', rarity: 'Rare', status: 'expiring', label: 'Ends in 15 min', short: '15 min left', closesAt: '2028-07-20T19:35', onMap: true },
+  { id: 'p_pier_half', name: 'Pier Half Pin', place: 'smpier', kind: 'half', shape: 'ferris-wheel', rarity: 'Rare', status: 'expiring', label: 'Ends in 15 min', short: '15 min left', closesAt: '2028-07-20T19:35', onMap: true,
+    tasks: [{ kind: 'visit' }, { kind: 'find', detail: 'Hint: look up at the Ferris wheel from the end of the pier.' }, { kind: 'photo' }] },
   { id: 'p_venice_half', name: 'Venice Half Pin', place: 'venice', kind: 'half', shape: 'palm', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_ltokyo', name: 'Little Tokyo Pin', place: 'jvp', kind: 'place', shape: 'landmark', rarity: 'Common', status: 'open', label: 'Open until 9:00 PM', short: 'Open', onMap: true },
   { id: 'p_leimert', name: 'Leimert Park Pin', place: 'leimert', kind: 'place', shape: 'music', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
@@ -502,6 +512,36 @@ export const activityAt = (placeId: string) => LIVE_ACTIVITY.find((a) => a.place
 // When a pin's countdown ends: opening for locked pins, closing for expiring ones
 export const pinCountdownTarget = (pin: Pin) =>
   pin.status === 'locked' ? pin.opensAt : pin.status === 'expiring' ? pin.closesAt : undefined
+
+// Tasks for a pin: its own, or the default mix for its kind
+const defaultTasks: Record<PinKind, CollectTask[]> = {
+  place: [{ kind: 'visit' }, { kind: 'photo' }],
+  half: [{ kind: 'visit' }, { kind: 'find' }, { kind: 'photo' }],
+  shop: [{ kind: 'visit' }, { kind: 'scan' }],
+  venue: [{ kind: 'visit' }, { kind: 'ticket' }],
+  event: [{ kind: 'visit' }, { kind: 'stay' }],
+}
+export const collectTasks = (pin: Pin) => pin.tasks ?? defaultTasks[pin.kind]
+
+// Short label for chips, title for the step list
+export const collectTaskLabel: Record<CollectTaskKind, { short: string; title: string }> = {
+  visit: { short: 'Visit', title: 'Visit' },
+  photo: { short: 'Photo', title: 'Take a photo' },
+  find: { short: 'Find', title: 'Find the spot' },
+  scan: { short: 'Scan', title: 'Scan a code' },
+  ticket: { short: 'Ticket', title: 'Scan your ticket' },
+  stay: { short: 'Stay', title: 'Stay a while' },
+}
+
+// Default how-to line per task kind; {place} is replaced with the place name
+export const collectTaskDetail: Record<CollectTaskKind, string> = {
+  visit: 'Go to {place}. You need to be within about 100 m.',
+  photo: 'Snap the spot to stamp the pin into your Passport.',
+  find: 'The pin is hidden at one exact spot. Follow the hint to find it.',
+  scan: 'Ask at the counter for the pin code and scan it.',
+  ticket: 'Scan your ticket at the gate for this session.',
+  stay: 'Stay for 15 minutes once it starts.',
+}
 
 export const eventTypeLabel: Record<EventType, string> = {
   game: 'Game',

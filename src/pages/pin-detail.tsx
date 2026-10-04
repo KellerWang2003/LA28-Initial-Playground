@@ -1,36 +1,56 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
-import { ChevronLeft, Clock, MapPin, Navigation, Star, Users } from 'lucide-react'
+import { Car, ChevronLeft, Clock, Footprints, MapPin, Navigation, Star, TramFront, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { PinShape, PinStatusChip, PinStatusText } from '@/components/pin-art'
+import { CollectPanel } from '@/components/collect-panel'
+import { ImagePlaceholder } from '@/components/image-placeholder'
+import { MapView, UserDot } from '@/components/map-view'
+import { PinShape, PinStatusChip } from '@/components/pin-art'
 import { useCollected } from '@/lib/collected'
 import { cn } from '@/lib/utils'
 import { activityAt, flag, pinById, pinKindLabel, placeById, reviewsFor, type Review } from '@/data/la28'
+import { FAKE_USER_LOCATION, formatKm, formatMinutes, travelFromYou, type LngLat } from '@/data/map-layers'
 
-// Pin detail: the pin's visual, the place, how to capture it, reviews,
-// then Navigate / I'm here. "I'm here" opens the capture screen.
+// Placeholder photos per place until real ones exist
+const PHOTOS = 5
+const MAP_PADDING = { top: 48, bottom: 48, left: 48, right: 48 }
+
+// Pin detail: photos of the place, the pin, where it is and how long it takes
+// to get there, then reviews. How to collect it and "I'm here" live in the
+// floating CollectPanel, a separate layer from the place info.
 export default function PinDetailPage() {
   const { pinId = '' } = useParams()
   const navigate = useNavigate()
   const collected = useCollected()
+  const [photo, setPhoto] = useState(0)
   const pin = pinById(pinId)
 
   if (!pin) return <Navigate to="/explore" replace />
 
   const place = placeById(pin.place)
+  const coords: LngLat = [place.lng, place.lat]
+  const trip = travelFromYou(coords)
   const activity = activityAt(place.id)
   const reviews = reviewsFor(place.id)
   const average = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
   const done = collected.includes(pin.id)
-  const locked = pin.status === 'locked'
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`
 
   return (
-    <div className="flex h-dvh flex-col bg-background">
-      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pb-6">
-        {/* Hero: the pin itself */}
-        <div className="relative flex flex-col items-center bg-muted px-6 pt-[calc(env(safe-area-inset-top)+56px)] pb-8 text-center">
+    <div className="relative flex h-dvh flex-col bg-background">
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pb-32">
+        {/* Photos of the place, swipeable */}
+        <div className="relative">
+          <div
+            aria-label={`Photos of ${place.name}`}
+            onScroll={(e) => setPhoto(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth))}
+            className="no-scrollbar flex h-[calc(env(safe-area-inset-top)+16rem)] snap-x snap-mandatory overflow-x-auto overscroll-x-contain"
+          >
+            {Array.from({ length: PHOTOS }, (_, i) => (
+              <ImagePlaceholder key={i} className="h-full w-full shrink-0 snap-center rounded-none border-0" />
+            ))}
+          </div>
           <Button
             variant="outline"
             size="icon-lg"
@@ -40,25 +60,29 @@ export default function PinDetailPage() {
           >
             <ChevronLeft className="size-5" />
           </Button>
-          <PinShape shape={pin.shape} status={pin.status} collected={done} className="size-36" />
-          <h1 className="mt-5 font-heading text-2xl font-semibold">{pin.name}</h1>
+          <span className="absolute right-4 bottom-4 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium tabular-nums shadow-sm">
+            {photo + 1} / {PHOTOS}
+          </span>
+        </div>
+
+        {/* The pin itself, overlapping the photos */}
+        <div className="flex flex-col items-center px-6 text-center">
+          <div className="relative -mt-14 rounded-full border bg-background p-3 shadow-sm">
+            <PinShape shape={pin.shape} status={pin.status} collected={done} className="size-24" />
+          </div>
+          <h1 className="mt-3 font-heading text-2xl font-semibold">{pin.name}</h1>
+          <p className="text-sm text-muted-foreground">{place.name}</p>
           <div className="mt-3 flex flex-wrap justify-center gap-1.5">
             <PinStatusChip pin={pin} collected={done} verbose />
-            <Badge variant="outline" className="bg-background">
-              {pin.rarity}
-            </Badge>
-            <Badge variant="outline" className="bg-background">
-              {pinKindLabel[pin.kind]}
-            </Badge>
+            <Badge variant="outline">{pin.rarity}</Badge>
+            <Badge variant="outline">{pinKindLabel[pin.kind]}</Badge>
           </div>
         </div>
 
-        <div className="space-y-7 px-4 pt-6">
+        <div className="space-y-7 px-4 pt-7">
           <Section title="About the place">
-            <p className="font-medium">{place.name}</p>
-            {place.about && <p className="mt-1 text-sm text-muted-foreground">{place.about}</p>}
+            {place.about && <p className="text-sm text-muted-foreground">{place.about}</p>}
             <ul className="mt-3 space-y-1.5 text-sm">
-              <InfoRow icon={<MapPin />}>{place.hood}</InfoRow>
               {place.hours && <InfoRow icon={<Clock />}>{place.hours}</InfoRow>}
               {activity && (
                 <InfoRow icon={<Users />}>
@@ -68,20 +92,39 @@ export default function PinDetailPage() {
             </ul>
           </Section>
 
-          <Section title="How to capture it">
-            <ol className="space-y-3">
-              <Step n={1} title={`Go to ${place.name}`}>
-                You need to be at the spot, within about 100 m.
-              </Step>
-              <Step n={2} title={locked ? 'Wait for it to unlock' : pin.status === 'expiring' ? 'Get there before it ends' : 'Come any time it’s open'}>
-                <span className="tabular-nums">
-                  {pin.status === 'open' ? pin.label : <PinStatusText pin={pin} verbose />}
-                </span>
-              </Step>
-              <Step n={3} title={'Tap “I’m here” and take a photo'}>
-                Snap the landmark to stamp the pin into your Passport.
-              </Step>
-            </ol>
+          <Section title="Getting there" aside={<span className="text-sm text-muted-foreground">{formatKm(trip.km)} away</span>}>
+            <div className="h-44 overflow-hidden rounded-xl border">
+              <MapView
+                interactive={false}
+                markers={[
+                  { id: 'me', coords: FAKE_USER_LOCATION },
+                  { id: 'place', coords },
+                ]}
+                renderMarker={(id) =>
+                  id === 'me' ? <UserDot /> : <PinShape shape={pin.shape} status={pin.status} collected={done} className="size-9 drop-shadow" />
+                }
+                initialBounds={[FAKE_USER_LOCATION, coords]}
+                initialPadding={MAP_PADDING}
+              />
+            </div>
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+              <MapPin className="size-4 shrink-0" />
+              {place.hood}
+            </p>
+            <ul className="mt-3 grid grid-cols-3 gap-2">
+              <TravelTime icon={<Footprints />} label="Walk" minutes={trip.walk} />
+              <TravelTime icon={<TramFront />} label="Transit" minutes={trip.transit} />
+              <TravelTime icon={<Car />} label="Drive" minutes={trip.drive} />
+            </ul>
+            <Button
+              variant="outline"
+              className="mt-3 w-full"
+              nativeButton={false}
+              render={<a href={directions} target="_blank" rel="noreferrer" />}
+            >
+              <Navigation data-icon="inline-start" />
+              Directions
+            </Button>
           </Section>
 
           <Section
@@ -103,15 +146,12 @@ export default function PinDetailPage() {
         </div>
       </div>
 
-      <div className="grid shrink-0 grid-cols-2 gap-2 border-t px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)]">
-        <Button size="lg" variant="outline" nativeButton={false} render={<a href={directions} target="_blank" rel="noreferrer" />}>
-          <Navigation data-icon="inline-start" />
-          Navigate
-        </Button>
-        <Button size="lg" disabled={done || locked} onClick={() => navigate(`/explore/pins/${pin.id}/capture`)}>
-          {done ? 'Collected' : locked ? <PinStatusText pin={pin} verbose /> : 'I’m here'}
-        </Button>
-      </div>
+      <CollectPanel
+        pin={pin}
+        placeName={place.name}
+        collected={done}
+        onCollect={() => navigate(`/explore/pins/${pin.id}/capture`)}
+      />
     </div>
   )
 }
@@ -137,14 +177,12 @@ function InfoRow({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   )
 }
 
-function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
+function TravelTime({ icon, label, minutes }: { icon: ReactNode; label: string; minutes: number }) {
   return (
-    <li className="flex gap-3">
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold">{n}</span>
-      <div>
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-sm text-muted-foreground">{children}</p>
-      </div>
+    <li className="flex flex-col items-center gap-1 rounded-xl border py-2.5 [&_svg]:size-5">
+      {icon}
+      <span className="text-sm font-medium tabular-nums">{formatMinutes(minutes)}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
     </li>
   )
 }
