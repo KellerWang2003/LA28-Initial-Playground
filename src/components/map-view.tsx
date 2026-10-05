@@ -70,6 +70,8 @@ type Props = {
   threeD?: boolean
   // false for a static preview map (no pan, zoom or rotate)
   interactive?: boolean
+  // Visited places. Each one opens a soft hole in the mist. Omit for a clear map.
+  revealed?: LngLat[]
   ref?: Ref<MapViewHandle>
 }
 
@@ -160,6 +162,157 @@ const areaOutline = {
   geometry: { type: 'MultiLineString' as const, coordinates: areaHoles },
 }
 
+const MIST_SOURCE = 'la28-mist'
+const MIST_LAYER = 'la28-mist'
+// Clear core, then a long feather back into fog. Meters on the ground.
+const MIST_CLEAR_M = 3200
+const MIST_FADE_M = 8600
+
+const MIST_WEST = MAP_LIMIT[0][0]
+const MIST_SOUTH = MAP_LIMIT[0][1]
+const MIST_EAST = MAP_LIMIT[1][0]
+const MIST_NORTH = MAP_LIMIT[1][1]
+
+// Top-left, top-right, bottom-right, bottom-left. The canvas is stretched
+// across this region, so the fog is part of the map rather than the screen.
+const MIST_COORDINATES: [[number, number], [number, number], [number, number], [number, number]] = [
+  [MIST_WEST, MIST_NORTH],
+  [MIST_EAST, MIST_NORTH],
+  [MIST_EAST, MIST_SOUTH],
+  [MIST_WEST, MIST_SOUTH],
+]
+
+function mercatorX(lng: number) {
+  return (lng + 180) / 360
+}
+
+function mercatorY(lat: number) {
+  const rad = (lat * Math.PI) / 180
+  return (1 - Math.log(Math.tan(Math.PI / 4 + rad / 2)) / Math.PI) / 2
+}
+
+function mulberry32(seed: number) {
+  return () => {
+    seed |= 0
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// Draw fog in mercator space so each opening is a circle on the map.
+// The canvas is pinned to MIST_COORDINATES; panning moves the mist with the ground.
+function paintMist(canvas: HTMLCanvasElement, revealed: LngLat[]) {
+  const x0 = mercatorX(MIST_WEST)
+  const y0 = mercatorY(MIST_NORTH)
+  const xSpan = mercatorX(MIST_EAST) - x0
+  const ySpan = mercatorY(MIST_SOUTH) - y0
+  const max = 2048
+  let width = max
+  let height = Math.max(1, Math.round((max * ySpan) / xSpan))
+  if (height > max) {
+    height = max
+    width = Math.max(1, Math.round((max * xSpan) / ySpan))
+  }
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width
+    canvas.height = height
+  }
+
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  ctx.clearRect(0, 0, width, height)
+  ctx.globalCompositeOperation = 'source-over'
+  // Cool gray veil, lighter than a slab and darker than the basemap,
+  // so a visited neighborhood reads as a bright opening.
+  ctx.fillStyle = 'rgba(198, 206, 212, 0.84)'
+  ctx.fillRect(0, 0, width, height)
+
+  const rand = mulberry32(28)
+  for (let i = 0; i < 42; i++) {
+    const x = rand() * width
+    const y = rand() * height
+    const r = (0.04 + rand() * 0.08) * width
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r)
+    const alpha = 0.035 + rand() * 0.09
+    g.addColorStop(0, rand() > 0.4 ? `rgba(255,255,255,${alpha})` : `rgba(198,208,214,${alpha})`)
+    g.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = g
+    ctx.beginPath()
+    ctx.arc(x, y, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  const unitsPerMeter = 1 / (Math.cos((34.05 * Math.PI) / 180) * 2 * Math.PI * 6378137)
+  const pxPerUnit = width / xSpan
+  const clearPx = MIST_CLEAR_M * unitsPerMeter * pxPerUnit
+  const fadePx = MIST_FADE_M * unitsPerMeter * pxPerUnit
+
+  ctx.globalCompositeOperation = 'destination-out'
+  for (const [lng, lat] of revealed) {
+    const x = ((mercatorX(lng) - x0) / xSpan) * width
+    const y = ((mercatorY(lat) - y0) / ySpan) * height
+    const g = ctx.createRadialGradient(x, y, clearPx, x, y, fadePx)
+    g.addColorStop(0, 'rgba(0,0,0,1)')
+    g.addColorStop(0.4, 'rgba(0,0,0,0.9)')
+    g.addColorStop(0.72, 'rgba(0,0,0,0.34)')
+    g.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = g
+    ctx.beginPath()
+    ctx.arc(x, y, fadePx, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.globalCompositeOperation = 'source-over'
+}
+
+function mistCanvas(ref: { current: HTMLCanvasElement | null }) {
+  if (!ref.current) ref.current = document.createElement('canvas')
+  return ref.current
+}
+
+// `revealed` omitted: no fog. An empty list: the whole region stays misty.
+// Adding the Games overlay marks the style busy, so a call in that same turn
+// waits until the map is idle before attaching the fog.
+function syncMist(map: mapboxgl.Map, canvas: HTMLCanvasElement, revealed: LngLat[] | undefined, tries = 0) {
+  if (!map.getStyle()) return
+  if (!map.isStyleLoaded()) {
+    if (tries > 5) return
+    map.once('idle', () => syncMist(map, canvas, revealed, tries + 1))
+    return
+  }
+  if (!revealed) {
+    if (map.getLayer(MIST_LAYER)) map.removeLayer(MIST_LAYER)
+    if (map.getSource(MIST_SOURCE)) map.removeSource(MIST_SOURCE)
+    return
+  }
+  paintMist(canvas, revealed)
+  if (!map.getSource(MIST_SOURCE)) {
+    map.addSource(MIST_SOURCE, {
+      type: 'canvas',
+      canvas,
+      coordinates: MIST_COORDINATES,
+      animate: false,
+    })
+    map.addLayer({
+      id: MIST_LAYER,
+      type: 'raster',
+      source: MIST_SOURCE,
+      paint: {
+        'raster-fade-duration': 0,
+        'raster-resampling': 'linear',
+        'raster-opacity': 1,
+      },
+    })
+    return
+  }
+  // Copy the redrawn canvas on the next frame, then stop so the map can idle.
+  const source = map.getSource(MIST_SOURCE) as mapboxgl.CanvasSource
+  source.play()
+  map.once('render', () => source.pause())
+}
+
 // Shade everywhere except the Games region, and trace that region.
 // A new style drops custom layers, so this runs again after each style load.
 function showGamesArea(map: mapboxgl.Map, style: MapStyle) {
@@ -214,6 +367,7 @@ export function MapView({
   mapStyle = 'light',
   threeD = false,
   interactive = true,
+  revealed,
   ref,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -226,6 +380,10 @@ export function MapView({
   useEffect(() => {
     callbacks.current = { onMarkerClick, onBackgroundClick, onZoomChange }
   })
+
+  const mistCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const revealedRef = useRef(revealed)
+  revealedRef.current = revealed
 
   useImperativeHandle(ref, () => ({
     flyTo: (center, padding) => {
@@ -265,8 +423,10 @@ export function MapView({
     map.on('zoom', () => callbacks.current.onZoomChange?.(map.getZoom()))
     map.on('moveend', () => declutterLabels(markerRefs.current.values()))
     map.once('load', () => {
+      if (mapRef.current !== map) return
       limitZoomOut(map)
       showGamesArea(map, mapStyle)
+      syncMist(map, mistCanvas(mistCanvasRef), revealedRef.current)
       callbacks.current.onZoomChange?.(map.getZoom())
     })
     mapRef.current = map
@@ -304,8 +464,27 @@ export function MapView({
       map.setProjection('mercator')
       setBuildings(map, threeDRef.current)
       showGamesArea(map, mapStyle)
+      syncMist(map, mistCanvas(mistCanvasRef), revealedRef.current)
     })
   }, [mapStyle])
+
+  // Repaint openings when the visited places change. The canvas is geographic,
+  // so this does not run on pan or zoom.
+  const revealedKey = revealed === undefined ? null : revealed.map(([lng, lat]) => `${lng.toFixed(5)},${lat.toFixed(5)}`).join(' ')
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    let gone = false
+    const apply = () => {
+      if (gone || mapRef.current !== map) return
+      syncMist(map, mistCanvas(mistCanvasRef), revealedRef.current)
+    }
+    if (map.loaded()) apply()
+    else map.once('load', apply)
+    return () => {
+      gone = true
+    }
+  }, [revealedKey])
 
   // 2D / 3D: tilt the camera and toggle extruded buildings
   useEffect(() => {

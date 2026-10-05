@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { Check, ChevronLeft, Flame, QrCode } from 'lucide-react'
+import { Check, ChevronLeft, Flame, QrCode, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ShapeSticker } from '@/components/shape-art'
 import { ImagePlaceholder } from '@/components/image-placeholder'
 import { SEED_COLLECTED, useCollected, useCustomIds } from '@/lib/collected'
@@ -15,7 +14,6 @@ import {
   CATEGORIES,
   CHALLENGES,
   DAILY_RESET,
-  PIN_VALUE,
   STORE_ITEMS,
   WEEKLY_RESET,
   challengeDone,
@@ -24,51 +22,81 @@ import {
   type StoreItem,
 } from '@/data/passport'
 
-type Tab = 'collection' | 'challenges' | 'store'
+const VISIBLE_PER_PERIOD = 2
 
 export default function PassportPage() {
   const navigate = useNavigate()
   const collected = useCollected()
   const customIds = useCustomIds()
   const { balance } = useWallet()
-  const [tab, setTab] = useState<Tab>('collection')
 
   return (
     <div className="flex h-dvh flex-col bg-background pt-[env(safe-area-inset-top)]">
-      <header className="flex h-14 shrink-0 items-center gap-2 px-2">
-        <Button variant="ghost" size="icon-lg" aria-label="Back" onClick={() => navigate(-1)}>
-          <ChevronLeft className="size-5" />
-        </Button>
-        <h1 className="font-heading text-lg font-semibold">Passport</h1>
-        {/* Currency, like a game HUD */}
-        <span
-          aria-label={`${balance} Torches`}
-          className="mr-2 ml-auto flex h-10 items-center rounded-full bg-muted pr-4 pl-3 text-base font-semibold"
-        >
-          <Torches amount={balance} iconClassName="size-5" />
-        </span>
-      </header>
+      <ScreenHeader title="Passport" balance={balance} onBack={() => navigate(-1)} />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="mt-1 min-h-0 flex-1">
-        <TabsList className="mx-4 w-auto shrink-0">
-          <TabsTrigger value="collection">Collection</TabsTrigger>
-          <TabsTrigger value="challenges">Challenges</TabsTrigger>
-          <TabsTrigger value="store">Store</TabsTrigger>
-        </TabsList>
-
-        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-[max(env(safe-area-inset-bottom),24px)]">
-          <TabsContent value="collection">
-            <Collection collected={collected} customIds={customIds} />
-          </TabsContent>
-          <TabsContent value="challenges">
-            <Challenges collected={collected} />
-          </TabsContent>
-          <TabsContent value="store">
-            <Store balance={balance} />
-          </TabsContent>
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-[max(env(safe-area-inset-bottom),6.5rem)]">
+        <Challenges collected={collected} />
+        <div className="mt-6">
+          <Collection collected={collected} customIds={customIds} />
         </div>
-      </Tabs>
+      </div>
+
+      <StoreButton />
     </div>
+  )
+}
+
+export function PassportStorePage() {
+  const navigate = useNavigate()
+  const { balance } = useWallet()
+
+  return (
+    <div className="flex h-dvh flex-col bg-background pt-[env(safe-area-inset-top)]">
+      <ScreenHeader title="Store" balance={balance} onBack={() => navigate(-1)} />
+
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-[max(env(safe-area-inset-bottom),24px)]">
+        <StoreShelf balance={balance} />
+      </div>
+    </div>
+  )
+}
+
+function ScreenHeader({ title, balance, onBack }: { title: string; balance: number; onBack: () => void }) {
+  return (
+    <header className="flex h-14 shrink-0 items-center gap-2 px-2">
+      <Button variant="ghost" size="icon-lg" aria-label="Back" onClick={onBack}>
+        <ChevronLeft className="size-5" />
+      </Button>
+      <h1 className="font-heading text-lg font-semibold">{title}</h1>
+      <span
+        aria-label={`${balance} Torches`}
+        className="mr-2 ml-auto flex h-10 items-center rounded-full bg-muted pr-4 pl-3 text-base font-semibold"
+      >
+        <Torches amount={balance} iconClassName="size-5" />
+      </span>
+    </header>
+  )
+}
+
+function StoreButton() {
+  const navigate = useNavigate()
+  return (
+    <button
+      type="button"
+      aria-label="Store"
+      onClick={() => navigate('/passport/store')}
+      className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 w-[4.75rem] shadow-lg transition-transform active:scale-95"
+    >
+      <span aria-hidden className="flex h-3 overflow-hidden rounded-t-md">
+        {Array.from({ length: 7 }, (_, i) => (
+          <span key={i} className={cn('h-full flex-1', i % 2 === 0 ? 'bg-foreground' : 'bg-foreground/35')} />
+        ))}
+      </span>
+      <span className="flex h-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-b-2xl bg-primary text-primary-foreground">
+        <Store className="size-5" strokeWidth={2} />
+        <span className="font-heading text-[11px] leading-none font-semibold">Store</span>
+      </span>
+    </button>
   )
 }
 
@@ -141,24 +169,24 @@ function PinTile({ pin, have, custom }: { pin: Pin; have: boolean; custom?: bool
   )
 }
 
-// ---- Challenges: daily and weekly. Reaching the goal pays the Torches. ----
+// ---- Challenges: two daily and two weekly, inline above the collection ----
 
 function Challenges({ collected }: { collected: string[] }) {
+  const daily = CHALLENGES.filter((c) => c.period === 'daily').slice(0, VISIBLE_PER_PERIOD)
+  const weekly = CHALLENGES.filter((c) => c.period === 'weekly').slice(0, VISIBLE_PER_PERIOD)
+
   return (
-    <div className="space-y-7 pt-2">
+    <div className="space-y-3">
       <ChallengeGroup title="Daily" resetsAt={DAILY_RESET}>
-        {CHALLENGES.filter((c) => c.period === 'daily').map((c) => (
+        {daily.map((c) => (
           <ChallengeRow key={c.id} challenge={c} done={challengeDone(c, collected, SEED_COLLECTED)} />
         ))}
       </ChallengeGroup>
       <ChallengeGroup title="Weekly" resetsAt={WEEKLY_RESET}>
-        {CHALLENGES.filter((c) => c.period === 'weekly').map((c) => (
+        {weekly.map((c) => (
           <ChallengeRow key={c.id} challenge={c} done={challengeDone(c, collected, SEED_COLLECTED)} />
         ))}
       </ChallengeGroup>
-      <p className="text-center text-xs text-muted-foreground">
-        Pins earn Torches too: {PIN_VALUE.Common} for Common, up to {PIN_VALUE.Legendary} for Legendary.
-      </p>
     </div>
   )
 }
@@ -167,11 +195,11 @@ function ChallengeGroup({ title, resetsAt, children }: { title: string; resetsAt
   const left = useRemaining(resetsAt)
   return (
     <section>
-      <div className="mb-2 flex items-baseline justify-between">
-        <h2 className="font-heading font-semibold">{title}</h2>
-        <span className="text-xs text-muted-foreground tabular-nums">Resets in {formatCountdown(left)}</span>
+      <div className="mb-1.5 flex items-baseline justify-between">
+        <h2 className="font-heading text-sm font-semibold">{title}</h2>
+        <span className="text-[11px] text-muted-foreground tabular-nums">Resets in {formatCountdown(left)}</span>
       </div>
-      <ul className="space-y-2">{children}</ul>
+      <ul className="space-y-1.5">{children}</ul>
     </section>
   )
 }
@@ -179,35 +207,30 @@ function ChallengeGroup({ title, resetsAt, children }: { title: string; resetsAt
 function ChallengeRow({ challenge, done }: { challenge: Challenge; done: number }) {
   const complete = done >= challenge.goal
   return (
-    <li className={cn('rounded-2xl border p-3', complete && 'opacity-60')}>
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">{challenge.title}</p>
-          <p className="text-xs text-muted-foreground">{challenge.detail}</p>
-        </div>
-        <Torches amount={challenge.reward} className="shrink-0 text-sm font-semibold" />
-      </div>
-      <div className="mt-3 flex items-center gap-3">
-        <div className="flex-1">
+    <li className={cn('flex items-center gap-3 rounded-2xl border px-3.5 py-4', complete && 'opacity-60')}>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{challenge.title}</p>
+        <div className="mt-3">
           <Progress value={done} max={challenge.goal} />
         </div>
-        <span className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+      </div>
+      {complete ? (
+        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+          <Check className="size-3.5" />
+          Completed
+        </span>
+      ) : (
+        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
           {Math.min(done, challenge.goal)}/{challenge.goal}
         </span>
-        {complete && (
-          <span className="flex shrink-0 items-center justify-end gap-1 text-xs text-muted-foreground">
-            <Check className="size-3.5" />
-            Completed
-          </span>
-        )}
-      </div>
+      )}
     </li>
   )
 }
 
 // ---- Store: spend Torches on merch, pick up with a QR code ----
 
-function Store({ balance }: { balance: number }) {
+function StoreShelf({ balance }: { balance: number }) {
   const { redeemed } = useWallet()
   const ready = STORE_ITEMS.filter((i) => redeemed.includes(i.id))
 

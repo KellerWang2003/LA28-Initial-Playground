@@ -4,11 +4,12 @@ import { EmptyScreen } from '@/components/empty-screen'
 import ExplorePage from '@/pages/explore'
 import PinCapturePage from '@/pages/pin-capture'
 import PinDetailPage from '@/pages/pin-detail'
-import PassportPage from '@/pages/passport'
+import PassportPage, { PassportStorePage } from '@/pages/passport'
 import EventsPage from '@/pages/events'
 import EventCreatePage from '@/pages/event-create'
 import SportsPage from '@/pages/sports'
-import SettingsPage from '@/pages/settings'
+import ProfilePage from '@/pages/profile'
+import ProfileSettingsPage from '@/pages/profile-settings'
 import PeoplePage from '@/pages/people'
 import PeopleAddPage from '@/pages/people-add'
 import { chats, personById } from '@/data/mock'
@@ -30,7 +31,9 @@ function App() {
       <Route path="explore/pins/:pinId" element={<PinDetailPage />} />
       <Route path="explore/pins/:pinId/capture" element={<PinCapturePage />} />
       <Route path="passport" element={<PassportPage />} />
-      <Route path="profile" element={<SettingsPage />} />
+      <Route path="passport/store" element={<PassportStorePage />} />
+      <Route path="profile" element={<ProfilePage />} />
+      <Route path="profile/settings" element={<ProfileSettingsPage />} />
       <Route path="events/create" element={<EventCreatePage />} />
       <Route path="events/:eventId" element={<EventDetail />} />
       <Route path="places/:placeId" element={<PlaceDetail />} />

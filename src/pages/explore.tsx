@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode, type UIEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Check, ChevronRight, Clock, Gift, Layers, Lock, LocateFixed, Radio, Search, Tv, Users, X } from 'lucide-react'
 import { MapView, UserDot, type MapPadding, type MapStyle, type MapViewHandle } from '@/components/map-view'
 import { BottomSheet, type Snap } from '@/components/bottom-sheet'
@@ -255,7 +255,7 @@ export default function ExplorePage() {
               ))}
             </div>
             {/* Highlight row is hidden at the smallest snap; it returns once the sheet is pulled up */}
-            {showPinRow && snap !== 'min' && <PinRecommendRow items={rowPins} onSelect={select} />}
+            {showPinRow && snap !== 'min' && <PinRecommendRow items={rowPins} />}
           </div>
         }
       >
@@ -389,18 +389,17 @@ function MarkerVisual({ item, selected, collected }: { item: MapItem; selected: 
 // Four recommendation cards across, inside the sheet's horizontal padding.
 // Same cards whether Pins is the active filter or none is. The label is the
 // reason to collect it: nearby, closing soon, or an event's why.
-function PinRecommendRow({ items, onSelect }: { items: MapItem[]; onSelect: (id: string) => void }) {
+function PinRecommendRow({ items }: { items: MapItem[] }) {
   return (
     <div className="grid grid-cols-4 gap-2 pb-3">
       {items.slice(0, HIGHLIGHTS).map((item) => {
         const pin = item.pin!
         const reason = recommendReason(item)
         return (
-          <button
+          <Link
             key={item.id}
-            type="button"
+            to={item.to}
             aria-label={`${item.title}, ${reason}`}
-            onClick={() => onSelect(item.id)}
             className="min-w-0 overflow-hidden rounded-2xl border bg-background text-left active:scale-[0.98]"
           >
             <div className="relative h-24">
@@ -413,7 +412,7 @@ function PinRecommendRow({ items, onSelect }: { items: MapItem[]; onSelect: (id:
               <p className="truncate text-[11px] leading-tight font-medium">{item.label}</p>
               <p className="truncate text-[10px] leading-tight text-muted-foreground">{reason}</p>
             </div>
-          </button>
+          </Link>
         )
       })}
     </div>
@@ -492,7 +491,7 @@ function SheetList({
     return (
       <div className="space-y-3 pb-2">
         {pins.map((i) => (
-          <PinCard key={i.id} item={i} collected={collected.includes(i.id)} onSelect={() => onSelect(i.id)} />
+          <PinCard key={i.id} item={i} collected={collected.includes(i.id)} />
         ))}
       </div>
     )
@@ -524,13 +523,12 @@ function SheetList({
 // One collectible pin: the pin on its place, how far, how you collect it, and a few photos.
 const CARD_PHOTOS = 4
 
-function PinCard({ item, collected, onSelect }: { item: MapItem; collected: boolean; onSelect: () => void }) {
+function PinCard({ item, collected }: { item: MapItem; collected: boolean }) {
   const pin = item.pin!
   const trip = travelFromYou(item.coords)
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <Link
+      to={item.to}
       className="mx-4 block w-[calc(100%-2rem)] overflow-hidden rounded-2xl border bg-background text-left active:bg-muted"
     >
       <div className="flex items-start gap-3 p-3">
@@ -568,7 +566,7 @@ function PinCard({ item, collected, onSelect }: { item: MapItem; collected: bool
           ))}
         </div>
       </div>
-    </button>
+    </Link>
   )
 }
 
@@ -666,7 +664,7 @@ function NearbyCards({
   }
 
   return (
-    <div className="absolute inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),12px)+76px)] z-20">
+    <div className="absolute inset-x-0 bottom-[calc(4rem+max(env(safe-area-inset-bottom),1rem)+12px)] z-20">
       <div
         onScroll={onScroll}
         className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-[7.5vw] pb-1"

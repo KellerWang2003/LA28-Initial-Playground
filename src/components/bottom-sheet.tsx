@@ -216,7 +216,9 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
         onPointerDown={onPointerDown}
         onClickCapture={onClickCapture}
         className={cn(
-          'pointer-events-auto absolute inset-x-0 bottom-0 flex flex-col rounded-t-3xl border-t bg-background shadow-[0_-4px_24px_rgba(0,0,0,0.08)]',
+          // Bottom padding matches the floating tab bar (h-16) plus its inset (same 1rem as the bar's px-4),
+          // so the list ends on the sheet background instead of sliding out under the bar.
+          'pointer-events-auto absolute inset-x-0 bottom-0 flex flex-col rounded-t-3xl border-t bg-background pb-[calc(4rem+max(env(safe-area-inset-bottom),1rem))] shadow-[0_-4px_24px_rgba(0,0,0,0.08)]',
           dragHeight === null && 'transition-[height,translate] duration-300 ease-out',
           hidden && 'translate-y-full',
         )}
@@ -231,10 +233,10 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
           <div className="mx-auto mt-2 mb-3 h-1.5 w-10 rounded-full bg-muted-foreground/30" />
           {header}
         </div>
-        {/* Scrolls only when fully open; bottom padding keeps content clear of the tab bar */}
+        {/* Scrolls only when fully open. A little air so the last card isn't flush with the tab bar. */}
         <div
           ref={scrollRef}
-          className={cn('min-h-0 flex-1 overscroll-contain pb-28', snap === 'full' && dragHeight === null ? 'overflow-y-auto' : 'overflow-hidden')}
+          className={cn('min-h-0 flex-1 overscroll-contain pb-4', snap === 'full' && dragHeight === null ? 'overflow-y-auto' : 'overflow-hidden')}
         >
           {children}
         </div>

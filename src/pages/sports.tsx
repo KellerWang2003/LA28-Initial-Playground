@@ -1,16 +1,19 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
+import { Search, X } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { LiveTimer } from '@/components/live-timer'
 import { MedalTable, medalDot } from '@/components/medal-table'
 import { ShapeIcon } from '@/components/shape-art'
-import { buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { athletes, medalTable } from '@/data/mock'
 import { followedNames, useFollowedSports } from '@/lib/followed-sports'
 import {
   SCHEDULE,
+  SPORTS,
   SPORT_SHAPE,
   TODAY,
   formatDate,
@@ -37,10 +40,53 @@ function sportMedals(sport: string) {
     .sort((a, b) => b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze || a.code.localeCompare(b.code))
 }
 
+const sessionText = (session: Session) =>
+  [session.sport, session.title, placeById(session.venue).name, session.teams?.join(' '), session.events?.join(' ')]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
 export default function SportsPage() {
+  const [searching, setSearching] = useState(false)
+  const [query, setQuery] = useState('')
+
+  function closeSearch() {
+    setQuery('')
+    setSearching(false)
+  }
+
   return (
     <div className="pb-28">
-      <PageHeader title="Sports" />
+      <PageHeader
+        title="Sports"
+        action={
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-lg"
+            aria-label={searching ? 'Close search' : 'Search sports'}
+            aria-expanded={searching}
+            className="rounded-full"
+            onClick={() => (searching ? closeSearch() : setSearching(true))}
+          >
+            {searching ? <X className="size-5" /> : <Search className="size-5" />}
+          </Button>
+        }
+        below={
+          searching ? (
+            <div className="px-4 pb-3">
+              <Input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search sports"
+                aria-label="Search sports"
+                className="h-12 rounded-full px-4 text-base"
+              />
+            </div>
+          ) : null
+        }
+      />
 
       <Tabs defaultValue="overview" className="px-4">
         <TabsList className="w-full">
@@ -51,35 +97,38 @@ export default function SportsPage() {
 
         <TabsContent value="overview" className="space-y-6 pt-4">
           <MedalTable rows={medalTable} subtitle="Day 7 · Thu, July 20" />
-          <Timeline />
+          <Timeline query={query} />
         </TabsContent>
 
         <TabsContent value="sport" className="pt-4">
-          <BySport />
+          <BySport query={query} />
         </TabsContent>
 
         <TabsContent value="athletes" className="pt-4">
-          <ByAthletes />
+          <ByAthletes query={query} />
         </TabsContent>
       </Tabs>
     </div>
   )
 }
 
-function Timeline() {
+function Timeline({ query }: { query: string }) {
   const followed = followedNames(useFollowedSports())
-  const sessions = SCHEDULE.filter(
-    (session) => session.status !== 'finished' && followed.includes(session.sport),
-  ).sort(byTime)
+  const q = query.trim().toLowerCase()
+  const sessions = SCHEDULE.filter((session) => {
+    if (session.status === 'finished') return false
+    if (q) return sessionText(session).includes(q)
+    return followed.includes(session.sport)
+  }).sort(byTime)
 
-  if (followed.length === 0) {
+  if (!q && followed.length === 0) {
     return (
       <section className="rounded-2xl border p-4">
         <h2 className="font-heading font-semibold">No sports selected</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Choose the sports you care about, and the timeline will show only those.
         </p>
-        <Link to="/profile" className="mt-3 inline-block text-sm font-medium underline">
+        <Link to="/profile/settings#sports" className="mt-3 inline-block text-sm font-medium underline">
           Choose sports
         </Link>
       </section>
@@ -90,7 +139,9 @@ function Timeline() {
     <section>
       <h2 className="mb-2 font-heading font-semibold">Timeline</h2>
       {sessions.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nothing live or coming up for the sports you follow.</p>
+        <p className="text-sm text-muted-foreground">
+          {q ? `No sports match “${query.trim()}”.` : 'Nothing live or coming up for the sports you follow.'}
+        </p>
       ) : (
         <ol className="relative rounded-2xl border px-4 py-4">
           {sessions.length > 1 && (
@@ -145,19 +196,31 @@ function TimelineItem({ session, last }: { session: Session; last: boolean }) {
   )
 }
 
-function BySport() {
+function BySport({ query }: { query: string }) {
   const followed = followedNames(useFollowedSports())
-  const [picked, setPicked] = useState(followed[0] ?? '')
-  const sport = followed.includes(picked) ? picked : (followed[0] ?? '')
+  const q = query.trim().toLowerCase()
+  const sports = q
+    ? SPORTS.filter(
+        (name) =>
+          name.toLowerCase().includes(q) ||
+          SCHEDULE.some((session) => session.sport === name && sessionText(session).includes(q)),
+      )
+    : followed
+  const [picked, setPicked] = useState(sports[0] ?? '')
+  const sport = sports.includes(picked) ? picked : (sports[0] ?? '')
 
-  if (followed.length === 0) {
+  if (sports.length === 0) {
     return (
       <section className="rounded-2xl border p-4">
-        <h2 className="font-heading font-semibold">No sports selected</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Choose which sports to show on this tab.</p>
-        <Link to="/profile" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'mt-3 rounded-full')}>
-          Edit
-        </Link>
+        <h2 className="font-heading font-semibold">{q ? 'No sports match' : 'No sports selected'}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {q ? `Nothing matches “${query.trim()}”.` : 'Choose which sports to show on this tab.'}
+        </p>
+        {!q && (
+          <Link to="/profile/settings#sports" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'mt-3 rounded-full')}>
+            Edit
+          </Link>
+        )}
       </section>
     )
   }
@@ -166,7 +229,7 @@ function BySport() {
     <div className="space-y-5">
       <div className="flex items-center gap-2">
         <div className="no-scrollbar flex min-w-0 flex-1 gap-2 overflow-x-auto">
-          {followed.map((name) => (
+          {sports.map((name) => (
             <button
               key={name}
               type="button"
@@ -181,7 +244,7 @@ function BySport() {
             </button>
           ))}
         </div>
-        <Link to="/profile" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-full')}>
+        <Link to="/profile/settings#sports" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-full')}>
           Edit
         </Link>
       </div>
@@ -293,12 +356,20 @@ function SessionRow({ session }: { session: Session }) {
   )
 }
 
-function ByAthletes() {
+function ByAthletes({ query }: { query: string }) {
+  const q = query.trim().toLowerCase()
+  const shown = athletes.filter((athlete) =>
+    [athlete.name, athlete.code, athlete.sport, athlete.line].join(' ').toLowerCase().includes(q),
+  )
+
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">Fictional athletes for Day 7 · Thu, July 20.</p>
+      {shown.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No athletes match “{query.trim()}”.</p>
+      ) : (
       <ul className="space-y-2">
-        {athletes.map((athlete) => {
+        {shown.map((athlete) => {
           const shape = SPORT_SHAPE[athlete.sport]
           return (
             <li key={athlete.id} className="rounded-2xl border p-4">
@@ -317,6 +388,7 @@ function ByAthletes() {
           )
         })}
       </ul>
+      )}
     </div>
   )
 }
