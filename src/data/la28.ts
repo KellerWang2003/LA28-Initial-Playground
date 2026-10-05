@@ -460,6 +460,8 @@ export const SPORT_SHAPE: Record<string, Shape> = {
   'Beach volleyball': 'volleyball',
 }
 
+export const SPORTS = Object.keys(SPORT_SHAPE)
+
 export const PLACE_SHAPE: Record<string, Shape> = {
   griffith: 'telescope',
   smpier: 'ferris-wheel',

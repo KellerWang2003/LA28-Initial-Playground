@@ -8,6 +8,7 @@ import PassportPage from '@/pages/passport'
 import EventsPage from '@/pages/events'
 import EventCreatePage from '@/pages/event-create'
 import SportsPage from '@/pages/sports'
+import SettingsPage from '@/pages/settings'
 import PeoplePage from '@/pages/people'
 import { chats, personById } from '@/data/mock'
 import { eventById, placeById } from '@/data/la28'
@@ -28,7 +29,7 @@ function App() {
       <Route path="explore/pins/:pinId" element={<PinDetailPage />} />
       <Route path="explore/pins/:pinId/capture" element={<PinCapturePage />} />
       <Route path="passport" element={<PassportPage />} />
-      <Route path="profile" element={<EmptyScreen title="Profile" />} />
+      <Route path="profile" element={<SettingsPage />} />
       <Route path="events/create" element={<EventCreatePage />} />
       <Route path="events/:eventId" element={<EventDetail />} />
       <Route path="places/:placeId" element={<PlaceDetail />} />

@@ -5,6 +5,8 @@ export const SEED_COLLECTED = ['p_pier', 'p_venice_half', 'p_hwof', 'p_lacma', '
 
 // In-memory only: a reload resets the demo, which is handy for testing flows.
 let collected: string[] = [...SEED_COLLECTED]
+// Pins kept as the photo version, rather than the location's default art
+let customIds: string[] = []
 const listeners = new Set<() => void>()
 
 function subscribe(listener: () => void) {
@@ -16,8 +18,14 @@ export function useCollected() {
   return useSyncExternalStore(subscribe, () => collected)
 }
 
-export function collectPin(id: string) {
+export function useCustomIds() {
+  return useSyncExternalStore(subscribe, () => customIds)
+}
+
+// `custom` keeps the pin made from their photo. Otherwise they get the location pin.
+export function collectPin(id: string, custom = false) {
   if (collected.includes(id)) return
   collected = [...collected, id]
+  if (custom) customIds = [...customIds, id]
   listeners.forEach((l) => l())
 }

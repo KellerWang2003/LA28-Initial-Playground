@@ -7,7 +7,8 @@ import { CollectPanel } from '@/components/collect-panel'
 import { ImagePlaceholder } from '@/components/image-placeholder'
 import { MapView, UserDot } from '@/components/map-view'
 import { PinShape, PinStatusChip } from '@/components/pin-art'
-import { useCollected } from '@/lib/collected'
+import { useCollected, useCustomIds } from '@/lib/collected'
+import { CustomPin } from '@/components/place-photo'
 import { cn } from '@/lib/utils'
 import { activityAt, flag, pinById, pinKindLabel, placeById, reviewsFor, type Review } from '@/data/la28'
 import { FAKE_USER_LOCATION, formatKm, formatMinutes, travelFromYou, type LngLat } from '@/data/map-layers'
@@ -23,6 +24,7 @@ export default function PinDetailPage() {
   const { pinId = '' } = useParams()
   const navigate = useNavigate()
   const collected = useCollected()
+  const custom = useCustomIds().includes(pinId)
   const [photo, setPhoto] = useState(0)
   const pin = pinById(pinId)
 
@@ -68,7 +70,11 @@ export default function PinDetailPage() {
         {/* The pin itself, overlapping the photos */}
         <div className="flex flex-col items-center px-6 text-center">
           <div className="relative -mt-14 rounded-full border bg-background p-3 shadow-sm">
-            <PinShape shape={pin.shape} status={pin.status} collected={done} className="size-24" />
+            {done && custom ? (
+              <CustomPin seed={pin.id} shape={pin.shape} className="size-24" />
+            ) : (
+              <PinShape shape={pin.shape} status={pin.status} collected={done} className="size-24" />
+            )}
           </div>
           <h1 className="mt-3 font-heading text-2xl font-semibold">{pin.name}</h1>
           <p className="text-sm text-muted-foreground">{place.name}</p>

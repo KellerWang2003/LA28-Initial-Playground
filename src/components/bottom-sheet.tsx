@@ -19,6 +19,8 @@ type Props = {
   children: ReactNode
   // Floats just above the sheet's top edge; children are spread left to right
   accessory?: ReactNode
+  // Taller when the header carries the pin row, so that row clears the tab bar
+  minHeight?: number
 }
 
 // What a gesture is doing, decided on its first move:
@@ -39,7 +41,7 @@ type Gesture = {
 // Native-style sheet that fills its positioned parent. Drag anywhere on it:
 // - not fully open: dragging moves the sheet (the list doesn't scroll yet)
 // - fully open: the list scrolls; once it's at the top, dragging down moves the sheet
-export function BottomSheet({ snap, onSnapChange, hidden, header, children, accessory }: Props) {
+export function BottomSheet({ snap, onSnapChange, hidden, header, children, accessory, minHeight = MIN_HEIGHT }: Props) {
   const boundsRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -58,9 +60,9 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
   }, [])
 
   const heights: Record<Snap, number> = {
-    min: MIN_HEIGHT,
-    half: Math.max(MIN_HEIGHT, Math.round(parentHeight * 0.5)),
-    full: Math.max(MIN_HEIGHT, parentHeight - TOP_GAP),
+    min: minHeight,
+    half: Math.max(minHeight, Math.round(parentHeight * 0.5)),
+    full: Math.max(minHeight, parentHeight - TOP_GAP),
   }
   const height = dragHeight ?? heights[snap]
 
@@ -133,7 +135,7 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
       g.lastY = y
       g.lastT = t
       if (Math.abs(y - g.startY) > DRAG_SLOP) g.dragged = true
-      g.h = Math.min(heights.full, Math.max(MIN_HEIGHT * 0.8, g.startH - (y - g.startY)))
+      g.h = Math.min(heights.full, Math.max(heights.min * 0.8, g.startH - (y - g.startY)))
       setDragHeight(g.h)
     }
 

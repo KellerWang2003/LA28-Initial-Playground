@@ -2,7 +2,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type 
 import { createPortal } from 'react-dom'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import type { LngLat } from '@/data/map-layers'
+import { LA28_AREA_RINGS, MAP_LIMIT, type LngLat } from '@/data/map-layers'
 
 const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
 
@@ -25,26 +25,33 @@ const styleUrls: Record<MapStyle, string> = {
 }
 
 const BUILDINGS_LAYER = '3d-buildings'
+const AREA_DIM = 'la28-area-dim'
+const AREA_LINE = 'la28-area-line'
+const AREA_SOURCE = 'la28-area'
 
 // Extruded buildings for 3D mode. Classic Mapbox styles carry building
 // heights in the `composite` source but don't draw them in 3D by default.
 function setBuildings(map: mapboxgl.Map, on: boolean) {
   const exists = !!map.getLayer(BUILDINGS_LAYER)
   if (on && !exists && map.getSource('composite')) {
-    map.addLayer({
-      id: BUILDINGS_LAYER,
-      type: 'fill-extrusion',
-      source: 'composite',
-      'source-layer': 'building',
-      filter: ['==', 'extrude', 'true'],
-      minzoom: 13,
-      paint: {
-        'fill-extrusion-color': '#d4d4d4',
-        'fill-extrusion-height': ['get', 'height'],
-        'fill-extrusion-base': ['get', 'min_height'],
-        'fill-extrusion-opacity': 0.7,
+    map.addLayer(
+      {
+        id: BUILDINGS_LAYER,
+        type: 'fill-extrusion',
+        source: 'composite',
+        'source-layer': 'building',
+        filter: ['==', 'extrude', 'true'],
+        minzoom: 13,
+        paint: {
+          'fill-extrusion-color': '#d4d4d4',
+          'fill-extrusion-height': ['get', 'height'],
+          'fill-extrusion-base': ['get', 'min_height'],
+          'fill-extrusion-opacity': 0.7,
+        },
       },
-    })
+      // Keep the Games highlight above the buildings
+      map.getLayer(AREA_DIM) ? AREA_DIM : undefined,
+    )
   } else if (!on && exists) {
     map.removeLayer(BUILDINGS_LAYER)
   }
@@ -102,6 +109,99 @@ function boundsOf(coords: LngLat[]) {
   return b
 }
 
+const limit = new mapboxgl.LngLatBounds(MAP_LIMIT[0], MAP_LIMIT[1])
+
+function closeRing(ring: LngLat[]) {
+  const first = ring[0]
+  const last = ring[ring.length - 1]
+  return first[0] === last[0] && first[1] === last[1] ? ring : [...ring, first]
+}
+
+// Positive when the ring runs counterclockwise
+function signedArea(ring: LngLat[]) {
+  let sum = 0
+  for (let i = 0; i < ring.length; i++) {
+    const [x1, y1] = ring[i]
+    const [x2, y2] = ring[(i + 1) % ring.length]
+    sum += x1 * y2 - x2 * y1
+  }
+  return sum
+}
+
+// A hole in the shade is clockwise
+function asHole(ring: LngLat[]) {
+  const closed = closeRing(ring)
+  return signedArea(closed) > 0 ? [...closed].reverse() : closed
+}
+
+const areaHoles = LA28_AREA_RINGS.map(asHole)
+
+// World with the Games region cut out, so only the surroundings are shaded
+const areaMask = {
+  type: 'Feature' as const,
+  properties: {},
+  geometry: {
+    type: 'Polygon' as const,
+    coordinates: [
+      [
+        [-180, -85],
+        [180, -85],
+        [180, 85],
+        [-180, 85],
+        [-180, -85],
+      ],
+      ...areaHoles,
+    ],
+  },
+}
+const areaOutline = {
+  type: 'Feature' as const,
+  properties: {},
+  geometry: { type: 'MultiLineString' as const, coordinates: areaHoles },
+}
+
+// Shade everywhere except the Games region, and trace that region.
+// A new style drops custom layers, so this runs again after each style load.
+function showGamesArea(map: mapboxgl.Map, style: MapStyle) {
+  if (!map.isStyleLoaded() || map.getSource(AREA_SOURCE)) return
+  const satellite = style === 'satellite'
+  map.addSource(AREA_SOURCE, { type: 'geojson', data: areaMask })
+  map.addSource('la28-area-outline', { type: 'geojson', data: areaOutline })
+  map.addLayer({
+    id: AREA_DIM,
+    type: 'fill',
+    source: AREA_SOURCE,
+    paint: {
+      'fill-color': '#000000',
+      'fill-opacity': satellite ? 0.35 : 0.14,
+    },
+  })
+  map.addLayer({
+    id: AREA_LINE,
+    type: 'line',
+    source: 'la28-area-outline',
+    paint: {
+      'line-color': satellite ? '#ffffff' : '#1c1c1c',
+      'line-width': satellite ? 2.5 : 2,
+      'line-opacity': satellite ? 0.95 : 0.55,
+    },
+  })
+}
+
+// Furthest zoom-out that still fills the view with the allowed region.
+// cameraForBounds fits the region inside the screen, which on a wide or tall
+// window leaves room to see past it; this is the zoom where the region covers the screen.
+function limitZoomOut(map: mapboxgl.Map) {
+  const { width, height } = map.getContainer().getBoundingClientRect()
+  if (width < 1 || height < 1) return
+  const sw = mapboxgl.MercatorCoordinate.fromLngLat(limit.getSouthWest())
+  const ne = mapboxgl.MercatorCoordinate.fromLngLat(limit.getNorthEast())
+  const zoom = Math.log2(
+    Math.max(width / (512 * Math.abs(ne.x - sw.x)), height / (512 * Math.abs(sw.y - ne.y))),
+  )
+  map.setMinZoom(zoom)
+}
+
 export function MapView({
   markers,
   renderMarker,
@@ -147,9 +247,15 @@ export function MapView({
       style: styleUrls[mapStyle],
       bounds: boundsOf(initialBounds),
       fitBoundsOptions: { padding: initialPadding },
+      // Mercator so the bounds limit the view itself. The default globe only
+      // pins the center, which still shows well past the region.
+      projection: 'mercator',
+      maxBounds: limit,
+      renderWorldCopies: false,
       attributionControl: false,
       interactive,
     })
+    limitZoomOut(map)
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'top-left')
     map.on('click', (e) => {
       // Marker clicks bubble through the canvas container; ignore those
@@ -158,11 +264,18 @@ export function MapView({
     })
     map.on('zoom', () => callbacks.current.onZoomChange?.(map.getZoom()))
     map.on('moveend', () => declutterLabels(markerRefs.current.values()))
-    map.once('load', () => callbacks.current.onZoomChange?.(map.getZoom()))
+    map.once('load', () => {
+      limitZoomOut(map)
+      showGamesArea(map, mapStyle)
+      callbacks.current.onZoomChange?.(map.getZoom())
+    })
     mapRef.current = map
 
-    // Keep the canvas sized to the container
-    const observer = new ResizeObserver(() => map.resize())
+    // Keep the canvas sized to the container, and the zoom-out limit matched to it
+    const observer = new ResizeObserver(() => {
+      map.resize()
+      limitZoomOut(map)
+    })
     observer.observe(containerRef.current)
 
     const markerMap = markerRefs.current
@@ -187,7 +300,11 @@ export function MapView({
     if (!map || currentStyle.current === mapStyle) return
     currentStyle.current = mapStyle
     map.setStyle(styleUrls[mapStyle])
-    map.once('style.load', () => setBuildings(map, threeDRef.current))
+    map.once('style.load', () => {
+      map.setProjection('mercator')
+      setBuildings(map, threeDRef.current)
+      showGamesArea(map, mapStyle)
+    })
   }, [mapStyle])
 
   // 2D / 3D: tilt the camera and toggle extruded buildings

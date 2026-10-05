@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ShapeSticker } from '@/components/shape-art'
 import { ImagePlaceholder } from '@/components/image-placeholder'
-import { SEED_COLLECTED, useCollected } from '@/lib/collected'
+import { SEED_COLLECTED, useCollected, useCustomIds } from '@/lib/collected'
+import { CustomPin } from '@/components/place-photo'
 import { claimChallenge, redeemItem, useWallet } from '@/lib/wallet'
 import { formatCountdown, useRemaining } from '@/lib/clock'
 import { cn } from '@/lib/utils'
@@ -27,6 +28,7 @@ type Tab = 'collection' | 'challenges' | 'store'
 export default function PassportPage() {
   const navigate = useNavigate()
   const collected = useCollected()
+  const customIds = useCustomIds()
   const { balance } = useWallet()
   const [tab, setTab] = useState<Tab>('collection')
 
@@ -55,7 +57,7 @@ export default function PassportPage() {
 
         <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-[max(env(safe-area-inset-bottom),24px)]">
           <TabsContent value="collection">
-            <Collection collected={collected} />
+            <Collection collected={collected} customIds={customIds} />
           </TabsContent>
           <TabsContent value="challenges">
             <Challenges collected={collected} />
@@ -88,7 +90,7 @@ function Progress({ value, max }: { value: number; max: number }) {
 
 // ---- Collection: pins by category; ones you don't have are grayed out ----
 
-function Collection({ collected }: { collected: string[] }) {
+function Collection({ collected, customIds }: { collected: string[]; customIds: string[] }) {
   return (
     <div className="space-y-7 pt-2">
       <p className="text-sm text-muted-foreground">
@@ -110,7 +112,7 @@ function Collection({ collected }: { collected: string[] }) {
             <Progress value={have.length} max={pins.length} />
             <div className="mt-3 grid grid-cols-4 gap-x-2 gap-y-3">
               {ordered.map((pin) => (
-                <PinTile key={pin.id} pin={pin} have={collected.includes(pin.id)} />
+                <PinTile key={pin.id} pin={pin} have={collected.includes(pin.id)} custom={customIds.includes(pin.id)} />
               ))}
             </div>
           </section>
@@ -120,12 +122,16 @@ function Collection({ collected }: { collected: string[] }) {
   )
 }
 
-function PinTile({ pin, have }: { pin: Pin; have: boolean }) {
+function PinTile({ pin, have, custom }: { pin: Pin; have: boolean; custom?: boolean }) {
   const navigate = useNavigate()
   return (
     <button type="button" onClick={() => navigate(`/explore/pins/${pin.id}`)} className="flex flex-col items-center gap-1 text-center transition-transform active:scale-95">
       <span className={cn('flex aspect-square w-full items-center justify-center rounded-2xl', have ? 'bg-muted' : 'border border-dashed')}>
-        <ShapeSticker shape={pin.shape} className={cn('size-3/5', have ? 'text-foreground' : 'text-muted-foreground/30 drop-shadow-none')} />
+        {have && custom ? (
+          <CustomPin seed={pin.id} shape={pin.shape} className="size-3/5 shadow-none" />
+        ) : (
+          <ShapeSticker shape={pin.shape} className={cn('size-3/5', have ? 'text-foreground' : 'text-muted-foreground/30 drop-shadow-none')} />
+        )}
       </span>
       <span className={cn('line-clamp-2 text-[11px] leading-tight', have ? 'font-medium' : 'text-muted-foreground/60')}>
         {pin.name.replace(/ Pin$/, '')}

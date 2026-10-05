@@ -25,7 +25,7 @@ import { Input } from '@/components/ui/input'
 import { useCollected } from '@/lib/collected'
 import { cn } from '@/lib/utils'
 import { pinCountdownTarget } from '@/data/la28'
-import { FAKE_USER_LOCATION, allItems, distance, layers, mapLayers, type Layer, type MapItem } from '@/data/map-layers'
+import { FAKE_USER_LOCATION, allItems, distance, layers, mapLayers, travelFromYou, type Layer, type MapItem } from '@/data/map-layers'
 
 const mapStyles: { id: MapStyle; label: string }[] = [
   { id: 'light', label: 'Default' },
@@ -45,6 +45,24 @@ const CARDS_PADDING: MapPadding = { top: 96, bottom: 400, left: 48, right: 48 }
 // Placeholder photos per place until real ones exist
 const PLACE_PHOTOS = 5
 
+// How many pins the sheet row shows, and how many markers an unfiltered map keeps
+const PIN_ROW = 14
+const MIX_CAP = 14
+
+// Lower is more relevant. Distance leads; live and expiring only nudge things
+// that are already nearby, so a pin across the city doesn't jump the row.
+function relevance(item: MapItem) {
+  const km = distance(item.coords, FAKE_USER_LOCATION) * 111
+  let penalty = km
+  if (km <= 8) {
+    if (item.liveSince) penalty -= 2
+    if (item.pin?.status === 'expiring') penalty -= 1.5
+  }
+  return penalty
+}
+
+const rank = (items: MapItem[]) => [...items].sort((a, b) => relevance(a) - relevance(b))
+
 // Frame the items nearest you rather than all of LA; the rest are a pan away
 const NEAREST = 15
 const nearestCoords = (items: MapItem[]) => [
@@ -60,8 +78,8 @@ export default function ExplorePage() {
   const mapRef = useRef<MapViewHandle>(null)
   const collected = useCollected()
   const [snap, setSnap] = useState<Snap>('min')
-  // Each pill is a map layer
-  const [layer, setLayer] = useState<Layer>('pins')
+  // A filter pill, or none: no selection shows the most relevant of everything
+  const [layer, setLayer] = useState<Layer | null>('pins')
   const [query, setQuery] = useState('')
   // anchorId fixes the order of the "nearby" cards; selectedId follows swipes
   const [anchorId, setAnchorId] = useState<string | null>(null)
@@ -70,7 +88,12 @@ export default function ExplorePage() {
   const [threeD, setThreeD] = useState(false)
   const [showLabels, setShowLabels] = useState(false)
 
-  const visibleItems = mapLayers[layer]
+  const pinRow = rank(mapLayers.pins).slice(0, PIN_ROW)
+  const mix = rank(allItems).slice(0, MIX_CAP)
+  // Pins filter keeps every pin (you're looking for them). No filter keeps a short mix.
+  const visibleItems = layer === null ? mix : layer === 'pins' ? mapLayers.pins : mapLayers[layer]
+  const showPinRow = !query.trim() && (layer === null || layer === 'pins')
+  const rowPins = layer === 'pins' ? pinRow : mix.filter((i) => i.kind === 'pin')
   const itemById = (id: string) => allItems.find((i) => i.id === id)!
   const markers = [
     ...visibleItems.map((i) => ({ id: i.id, coords: i.coords, offset: i.offset })),
@@ -83,8 +106,8 @@ export default function ExplorePage() {
 
   function select(id: string) {
     const item = itemById(id)
-    // Search results can come from another layer: switch to it
-    if (item.layer !== layer) setLayer(item.layer)
+    // A chosen filter follows a search result onto that result's layer
+    if (layer !== null && item.layer !== layer) setLayer(item.layer)
     setAnchorId(id)
     setSelectedId(id)
     setSnap('min')
@@ -103,9 +126,11 @@ export default function ExplorePage() {
   }
 
   function changeLayer(next: Layer) {
-    setLayer(next)
+    const selected = layer === next ? null : next
+    setLayer(selected)
     clearSelection()
-    if (mapLayers[next].length) mapRef.current?.fitTo(nearestCoords(mapLayers[next]), SHEET_PADDING)
+    const items = selected === null ? mix : selected === 'pins' ? pinRow : mapLayers[selected]
+    if (items.length) mapRef.current?.fitTo(nearestCoords(items), SHEET_PADDING)
   }
 
   function renderMarker(id: string) {
@@ -184,6 +209,7 @@ export default function ExplorePage() {
         snap={snap}
         onSnapChange={setSnap}
         hidden={selectedId !== null}
+        minHeight={showPinRow ? 360 : undefined}
         accessory={
           <>
             <Button
@@ -215,6 +241,7 @@ export default function ExplorePage() {
                 <button
                   key={l.id}
                   type="button"
+                  aria-pressed={layer === l.id}
                   onClick={() => changeLayer(l.id)}
                   className={cn(
                     'h-10 shrink-0 rounded-full border px-4 text-[15px] transition-transform active:scale-95',
@@ -225,10 +252,11 @@ export default function ExplorePage() {
                 </button>
               ))}
             </div>
+            {showPinRow && <PinStrip items={rowPins} collected={collected} onSelect={select} />}
           </div>
         }
       >
-        <SheetList layer={layer} query={query} collected={collected} onSelect={select} />
+        <SheetList layer={layer} query={query} mix={mix} collected={collected} onSelect={select} />
       </BottomSheet>
 
       {anchorId && (
@@ -355,14 +383,52 @@ function MarkerVisual({ item, selected, collected }: { item: MapItem; selected: 
 
 // ---- Sheet list ----
 
-function SheetList({
-  layer,
-  query,
+function PinStrip({
+  items,
   collected,
   onSelect,
 }: {
-  layer: Layer
+  items: MapItem[]
+  collected: string[]
+  onSelect: (id: string) => void
+}) {
+  return (
+    <div className="no-scrollbar -mx-4 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain pb-1">
+      {items.map((item) => (
+        <PinColumn key={item.id} item={item} collected={collected.includes(item.id)} onSelect={() => onSelect(item.id)} />
+      ))}
+    </div>
+  )
+}
+
+function PinColumn({ item, collected, onSelect }: { item: MapItem; collected: boolean; onSelect: () => void }) {
+  const pin = item.pin!
+  const trip = travelFromYou(item.coords)
+  return (
+    <button type="button" onClick={onSelect} className="flex w-1/4 shrink-0 snap-start flex-col items-center gap-1 px-1 active:scale-95">
+      <PinShape shape={pin.shape} status={pin.status} collected={collected} className="size-12" />
+      <span className="text-[11px] font-medium whitespace-nowrap text-muted-foreground tabular-nums">
+        {trip.walk < 60 ? `${trip.walk} min` : `${Math.floor(trip.walk / 60)}h ${trip.walk % 60 ? `${trip.walk % 60}m` : ''}`.trim()}
+      </span>
+      {pin.status === 'expiring' && (
+        <span className="text-center text-[10px] leading-tight font-medium text-amber-600 tabular-nums">
+          <PinStatusText pin={pin} />
+        </span>
+      )}
+    </button>
+  )
+}
+
+function SheetList({
+  layer,
+  query,
+  mix,
+  collected,
+  onSelect,
+}: {
+  layer: Layer | null
   query: string
+  mix: MapItem[]
   collected: string[]
   onSelect: (id: string) => void
 }) {
@@ -370,13 +436,10 @@ function SheetList({
   const layerLabel = (l: Layer) => layers.find((x) => x.id === l)!.label
 
   // Searching looks across every layer; otherwise list the current one
-  const results = (q ? allItems : mapLayers[layer])
+  const source = q ? allItems : layer && layer !== 'pins' ? mapLayers[layer] : []
+  const results = source
     .filter((i) => !q || `${i.title} ${i.place.name} ${i.place.hood}`.toLowerCase().includes(q))
     .sort((a, b) => distance(a.coords, FAKE_USER_LOCATION) - distance(b.coords, FAKE_USER_LOCATION))
-
-  if (!q && layer === 'saved') {
-    return <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nothing saved yet</p>
-  }
 
   const row = (i: MapItem) => (
     <ListRow
@@ -389,8 +452,22 @@ function SheetList({
     />
   )
 
+  if (!q && layer === 'saved') {
+    return <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nothing saved yet</p>
+  }
+
+  // No filter: the pin row is the pins, and the list is the other relevant things
+  if (!q && layer === null) {
+    const rest = mix.filter((i) => i.kind !== 'pin')
+    if (!rest.length) return null
+    return <ListSection title="Also nearby">{rest.map(row)}</ListSection>
+  }
+
+  if (!q && layer === 'pins') return null
+
   // Layers with sections (Watch parties) list each section separately, in layer order
-  const sections = q ? [] : [...new Set(mapLayers[layer].flatMap((i) => (i.section ? [i.section] : [])))]
+  const sections =
+    !q && layer && layer !== 'pins' ? [...new Set(mapLayers[layer].flatMap((i) => (i.section ? [i.section] : [])))] : []
   if (sections.length) {
     return (
       <div className="space-y-4">

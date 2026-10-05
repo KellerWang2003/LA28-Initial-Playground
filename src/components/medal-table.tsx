@@ -46,27 +46,79 @@ function MedalHeader({ medal, label }: { medal: keyof typeof medalDot; label: st
   )
 }
 
+const PREVIEW = 3
+
 export function MedalTable({ rows, subtitle }: { rows: CountryMedals[]; subtitle: string }) {
   const [rankBy, setRankBy] = useState<RankBy>('gold')
+  const [expanded, setExpanded] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
   const ranked = rankTable(rows, rankBy)
+  const preview = ranked.slice(0, PREVIEW)
 
   return (
     <section className="overflow-hidden rounded-2xl border">
-      <div className="flex items-start justify-between gap-2 p-4 pb-2">
-        <div>
-          <h2 className="font-heading font-semibold">Medal table</h2>
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
-        </div>
-        <Tabs value={rankBy} onValueChange={(v) => setRankBy(v as RankBy)}>
-          <TabsList>
-            <TabsTrigger value="gold">Gold</TabsTrigger>
-            <TabsTrigger value="total">Total</TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <div className="flex items-center gap-2 p-4">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          <span className="min-w-0">
+            <span className="block font-heading font-semibold">Medal table</span>
+            <span className="block text-xs text-muted-foreground">{subtitle}</span>
+          </span>
+        </button>
+        {expanded && (
+          <Tabs value={rankBy} onValueChange={(v) => setRankBy(v as RankBy)}>
+            <TabsList>
+              <TabsTrigger value="gold">Gold</TabsTrigger>
+              <TabsTrigger value="total">Total</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-label={expanded ? 'Collapse medal table' : 'Expand medal table'}
+          className="shrink-0 text-muted-foreground"
+        >
+          <ChevronDown className={cn('size-4 transition-transform', expanded && 'rotate-180')} />
+        </button>
       </div>
 
-      <table className="w-full text-sm tabular-nums">
+      {!expanded && (
+        <>
+          <ol>
+            {preview.map((c) => (
+              <li key={c.code} className="flex items-center gap-2 border-t px-4 py-2 text-sm tabular-nums">
+                <span className="w-6 text-muted-foreground">
+                  {c.shared && '='}
+                  {c.rank}
+                </span>
+                <span className="text-base leading-none">{c.flag}</span>
+                <span className="font-medium">{c.code}</span>
+                <span className="truncate text-xs text-muted-foreground">{c.name}</span>
+                <span className="ml-auto flex items-center gap-1.5">
+                  <span className={cn('size-2.5 rounded-full', rankBy === 'total' ? 'bg-foreground' : medalDot.gold)} />
+                  {rankBy === 'total' ? total(c) : c.gold}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="w-full border-t px-4 py-2.5 text-center text-xs text-muted-foreground"
+          >
+            Show all {ranked.length} teams
+          </button>
+        </>
+      )}
+
+      {expanded && (
+      <>
+      <table className="w-full border-t text-sm tabular-nums">
         <thead>
           <tr className="text-xs text-muted-foreground">
             <th className="w-10 py-2 pl-4 text-left font-normal">#</th>
@@ -79,13 +131,13 @@ export function MedalTable({ rows, subtitle }: { rows: CountryMedals[]; subtitle
         </thead>
         <tbody>
           {ranked.map((c) => {
-            const expanded = open === c.code
+            const rowOpen = open === c.code
             return (
               <Fragment key={c.code}>
                 <tr
-                  onClick={() => setOpen(expanded ? null : c.code)}
-                  aria-expanded={expanded}
-                  className={cn('cursor-pointer border-t', expanded && 'bg-muted/60')}
+                  onClick={() => setOpen(rowOpen ? null : c.code)}
+                  aria-expanded={rowOpen}
+                  className={cn('cursor-pointer border-t', rowOpen && 'bg-muted/60')}
                 >
                   <td className="py-2.5 pl-4 text-muted-foreground">
                     {c.shared && '='}
@@ -96,7 +148,7 @@ export function MedalTable({ rows, subtitle }: { rows: CountryMedals[]; subtitle
                       <span className="text-base leading-none">{c.flag}</span>
                       <span className="font-medium">{c.code}</span>
                       <span className="truncate text-xs text-muted-foreground">{c.name}</span>
-                      <ChevronDown className={cn('ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-180')} />
+                      <ChevronDown className={cn('ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform', rowOpen && 'rotate-180')} />
                     </span>
                   </td>
                   <td className={cn('text-center', rankBy === 'gold' && 'font-semibold')}>{c.gold}</td>
@@ -104,7 +156,7 @@ export function MedalTable({ rows, subtitle }: { rows: CountryMedals[]; subtitle
                   <td className="text-center">{c.bronze}</td>
                   <td className={cn('pr-4 text-right', rankBy === 'total' && 'font-semibold')}>{total(c)}</td>
                 </tr>
-                {expanded &&
+                {rowOpen &&
                   c.bySport.map((s) => (
                     <tr key={s.sport} className="bg-muted/60 text-xs text-muted-foreground">
                       <td />
@@ -127,6 +179,8 @@ export function MedalTable({ rows, subtitle }: { rows: CountryMedals[]; subtitle
           : 'Ranked by total medals. Tied teams share a rank.'}{' '}
         Tap a team for medals by sport.
       </p>
+      </>
+      )}
     </section>
   )
 }

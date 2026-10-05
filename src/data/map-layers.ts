@@ -77,6 +77,63 @@ export type MapItem = {
 // Fake "current location" (near a downtown hotel) since location is simulated
 export const FAKE_USER_LOCATION: LngLat = [-118.2585, 34.0451]
 
+// How far past the Games region the camera can still go, in km.
+// Room to wander the counties around it, not a fence on the county line.
+const ROAM_KM = 90
+
+// Where LA28 happens in Southern California, as of the 2026 Games plan
+// (la28.org venue list / Olympics.com): all of Los Angeles County, Catalina
+// included, plus the adjacent cities outside the county that host sports.
+// Anaheim (indoor volleyball) and San Clemente / Trestles (surfing), and the
+// Orange County cities between those venues and Los Angeles. Oklahoma City
+// and the out-of-state football cities are not on this map.
+// Rings are simplified from the US Census county boundary and eased outward
+// so the real coastline sits inside the line.
+export const LA28_AREA_RINGS: LngLat[][] = [
+  [
+    [-118.9185, 34.8364], [-118.8878, 34.864], [-118.3303, 34.8733], [-117.6319, 34.8687],
+    [-117.6221, 34.5979], [-117.5969, 34.3681], [-117.5872, 34.3147], [-117.6149, 34.1825],
+    [-117.6657, 34.0224], [-117.6149, 33.9765], [-117.5998, 33.7793], [-117.5703, 33.515],
+    [-117.5058, 33.3203], [-117.5805, 33.257], [-117.7445, 33.3347], [-117.8982, 33.4528],
+    [-117.9891, 33.5724], [-118.0605, 33.6618], [-118.0862, 33.6944], [-118.1556, 33.7122],
+    [-118.1666, 33.6709], [-118.2558, 33.6494], [-118.332, 33.6618], [-118.3752, 33.6845],
+    [-118.4384, 33.6924], [-118.458, 33.727], [-118.4231, 33.7552], [-118.4235, 33.7939],
+    [-118.4996, 33.9158], [-118.546, 33.9904], [-118.6068, 34.025], [-118.7327, 34.022],
+    [-118.8118, 34.018], [-118.8693, 34.0002], [-118.9195, 34.0366], [-119.0092, 34.0486],
+    [-119.0053, 34.0816], [-118.851, 34.1868], [-118.7265, 34.1916], [-118.7213, 34.2676],
+    [-118.6833, 34.2752], [-118.6997, 34.3618],
+  ],
+  [
+    [-118.6299, 33.4934], [-118.5679, 33.4936], [-118.4356, 33.4543], [-118.338, 33.4145],
+    [-118.334, 33.3853], [-118.2797, 33.3239], [-118.3026, 33.2808], [-118.3514, 33.3005],
+    [-118.4703, 33.2994], [-118.506, 33.3338], [-118.5121, 33.4383], [-118.5897, 33.4446],
+  ],
+]
+
+// [[west, south], [east, north]]. Wide of the Games region, so you can travel
+// around it — Ventura, the Inland Empire, toward San Diego — and still collect.
+export const MAP_LIMIT: [LngLat, LngLat] = (() => {
+  let west = Infinity
+  let east = -Infinity
+  let south = Infinity
+  let north = -Infinity
+  for (const ring of LA28_AREA_RINGS) {
+    for (const [lng, lat] of ring) {
+      west = Math.min(west, lng)
+      east = Math.max(east, lng)
+      south = Math.min(south, lat)
+      north = Math.max(north, lat)
+    }
+  }
+  const midLat = (south + north) / 2
+  const latPad = ROAM_KM / 111
+  const lngPad = ROAM_KM / (111 * Math.cos((midLat * Math.PI) / 180))
+  return [
+    [west - lngPad, south - latPad],
+    [east + lngPad, north + latPad],
+  ]
+})()
+
 const coordsOf = (p: Place): LngLat => [p.lng, p.lat]
 const sessionStart = (s: Session) => `${s.date}T${s.start}`
 
