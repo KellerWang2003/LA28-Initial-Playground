@@ -10,6 +10,7 @@ import EventCreatePage from '@/pages/event-create'
 import SportsPage from '@/pages/sports'
 import SettingsPage from '@/pages/settings'
 import PeoplePage from '@/pages/people'
+import PeopleAddPage from '@/pages/people-add'
 import { chats, personById } from '@/data/mock'
 import { eventById, placeById } from '@/data/la28'
 
@@ -33,6 +34,7 @@ function App() {
       <Route path="events/create" element={<EventCreatePage />} />
       <Route path="events/:eventId" element={<EventDetail />} />
       <Route path="places/:placeId" element={<PlaceDetail />} />
+      <Route path="people/add" element={<PeopleAddPage />} />
       <Route path="people/chat/:chatId" element={<ChatThread />} />
       <Route path="people/:personId" element={<PersonProfile />} />
 

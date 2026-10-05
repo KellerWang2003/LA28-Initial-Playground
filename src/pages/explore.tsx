@@ -24,8 +24,8 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { useCollected } from '@/lib/collected'
 import { cn } from '@/lib/utils'
-import { pinCountdownTarget } from '@/data/la28'
-import { FAKE_USER_LOCATION, allItems, distance, layers, mapLayers, travelFromYou, type Layer, type MapItem } from '@/data/map-layers'
+import { EVENTS, collectTaskLabel, collectTasks, pinCountdownTarget, pinKindLabel, type Pin } from '@/data/la28'
+import { FAKE_USER_LOCATION, allItems, distance, formatMinutes, layers, mapLayers, travelFromYou, type Layer, type MapItem } from '@/data/map-layers'
 
 const mapStyles: { id: MapStyle; label: string }[] = [
   { id: 'light', label: 'Default' },
@@ -45,9 +45,12 @@ const CARDS_PADDING: MapPadding = { top: 96, bottom: 400, left: 48, right: 48 }
 // Placeholder photos per place until real ones exist
 const PLACE_PHOTOS = 5
 
-// How many pins the sheet row shows, and how many markers an unfiltered map keeps
+// Pins that frame the map when the Pins filter is on.
+// An unfiltered map keeps this many of the nearest relevant markers.
 const PIN_ROW = 14
 const MIX_CAP = 14
+// Recommendation cards across the sheet. Four, in the sheet padding, no sideways scroll.
+const HIGHLIGHTS = 4
 
 // Lower is more relevant. Distance leads; live and expiring only nudge things
 // that are already nearby, so a pin across the city doesn't jump the row.
@@ -93,7 +96,7 @@ export default function ExplorePage() {
   // Pins filter keeps every pin (you're looking for them). No filter keeps a short mix.
   const visibleItems = layer === null ? mix : layer === 'pins' ? mapLayers.pins : mapLayers[layer]
   const showPinRow = !query.trim() && (layer === null || layer === 'pins')
-  const rowPins = layer === 'pins' ? pinRow : mix.filter((i) => i.kind === 'pin')
+  const rowPins = (layer === 'pins' ? pinRow : mix.filter((i) => i.kind === 'pin')).slice(0, HIGHLIGHTS)
   const itemById = (id: string) => allItems.find((i) => i.id === id)!
   const markers = [
     ...visibleItems.map((i) => ({ id: i.id, coords: i.coords, offset: i.offset })),
@@ -209,7 +212,6 @@ export default function ExplorePage() {
         snap={snap}
         onSnapChange={setSnap}
         hidden={selectedId !== null}
-        minHeight={showPinRow ? 360 : undefined}
         accessory={
           <>
             <Button
@@ -252,11 +254,12 @@ export default function ExplorePage() {
                 </button>
               ))}
             </div>
-            {showPinRow && <PinStrip items={rowPins} collected={collected} onSelect={select} />}
+            {/* Highlight row is hidden at the smallest snap; it returns once the sheet is pulled up */}
+            {showPinRow && snap !== 'min' && <PinRecommendRow items={rowPins} onSelect={select} />}
           </div>
         }
       >
-        <SheetList layer={layer} query={query} mix={mix} collected={collected} onSelect={select} />
+        <SheetList layer={layer} query={query} mix={mix} collected={collected} revealed={snap !== 'min'} onSelect={select} />
       </BottomSheet>
 
       {anchorId && (
@@ -383,40 +386,56 @@ function MarkerVisual({ item, selected, collected }: { item: MapItem; selected: 
 
 // ---- Sheet list ----
 
-function PinStrip({
-  items,
-  collected,
-  onSelect,
-}: {
-  items: MapItem[]
-  collected: string[]
-  onSelect: (id: string) => void
-}) {
+// Four recommendation cards across, inside the sheet's horizontal padding.
+// Same cards whether Pins is the active filter or none is. The label is the
+// reason to collect it: nearby, closing soon, or an event's why.
+function PinRecommendRow({ items, onSelect }: { items: MapItem[]; onSelect: (id: string) => void }) {
   return (
-    <div className="no-scrollbar -mx-4 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain pb-1">
-      {items.map((item) => (
-        <PinColumn key={item.id} item={item} collected={collected.includes(item.id)} onSelect={() => onSelect(item.id)} />
-      ))}
+    <div className="grid grid-cols-4 gap-2 pb-3">
+      {items.slice(0, HIGHLIGHTS).map((item) => {
+        const pin = item.pin!
+        const reason = recommendReason(item)
+        return (
+          <button
+            key={item.id}
+            type="button"
+            aria-label={`${item.title}, ${reason}`}
+            onClick={() => onSelect(item.id)}
+            className="min-w-0 overflow-hidden rounded-2xl border bg-background text-left active:scale-[0.98]"
+          >
+            <div className="relative h-24">
+              <ImagePlaceholder className="size-full rounded-none border-0" />
+              <span className="absolute inset-0 flex items-center justify-center">
+                <PinShape shape={pin.shape} status={pin.status} className="size-10 drop-shadow-md" />
+              </span>
+            </div>
+            <div className="px-1.5 py-1.5">
+              <p className="truncate text-[11px] leading-tight font-medium">{item.label}</p>
+              <p className="truncate text-[10px] leading-tight text-muted-foreground">{reason}</p>
+            </div>
+          </button>
+        )
+      })}
     </div>
   )
 }
 
-function PinColumn({ item, collected, onSelect }: { item: MapItem; collected: boolean; onSelect: () => void }) {
+function recommendReason(item: MapItem) {
   const pin = item.pin!
-  const trip = travelFromYou(item.coords)
-  return (
-    <button type="button" onClick={onSelect} className="flex w-1/4 shrink-0 snap-start flex-col items-center gap-1 px-1 active:scale-95">
-      <PinShape shape={pin.shape} status={pin.status} collected={collected} className="size-12" />
-      <span className="text-[11px] font-medium whitespace-nowrap text-muted-foreground tabular-nums">
-        {trip.walk < 60 ? `${trip.walk} min` : `${Math.floor(trip.walk / 60)}h ${trip.walk % 60 ? `${trip.walk % 60}m` : ''}`.trim()}
-      </span>
-      {pin.status === 'expiring' && (
-        <span className="text-center text-[10px] leading-tight font-medium text-amber-600 tabular-nums">
-          <PinStatusText pin={pin} />
-        </span>
-      )}
-    </button>
-  )
+  const walk = travelFromYou(item.coords).walk
+  if (pin.status === 'expiring') return pin.short
+  if (walk <= 25) return 'Near you'
+  const why = EVENTS.find((e) => e.pin === pin.id)?.why
+  if (why) return why
+  if (pin.status === 'locked') return pin.short
+  return `${formatMinutes(walk)} walk`
+}
+
+function collectMethod(pin: Pin) {
+  const tasks = collectTasks(pin)
+  const featured = tasks.filter((t) => t.kind !== 'visit')
+  const list = featured.length ? featured : tasks
+  return list.map((t) => (t.kind === 'photo' ? 'Snap a photo' : collectTaskLabel[t.kind].title)).join(' · ')
 }
 
 function SheetList({
@@ -424,12 +443,14 @@ function SheetList({
   query,
   mix,
   collected,
+  revealed,
   onSelect,
 }: {
   layer: Layer | null
   query: string
   mix: MapItem[]
   collected: string[]
+  revealed: boolean
   onSelect: (id: string) => void
 }) {
   const q = query.trim().toLowerCase()
@@ -463,7 +484,19 @@ function SheetList({
     return <ListSection title="Also nearby">{rest.map(row)}</ListSection>
   }
 
-  if (!q && layer === 'pins') return null
+  // Pins filter: the row above is the recommendations. Under it, every collectible pin.
+  // Hidden at the smallest snap so only search and the filter chips remain.
+  if (!q && layer === 'pins') {
+    if (!revealed) return null
+    const pins = rank(mapLayers.pins)
+    return (
+      <div className="space-y-3 pb-2">
+        {pins.map((i) => (
+          <PinCard key={i.id} item={i} collected={collected.includes(i.id)} onSelect={() => onSelect(i.id)} />
+        ))}
+      </div>
+    )
+  }
 
   // Layers with sections (Watch parties) list each section separately, in layer order
   const sections =
@@ -485,6 +518,57 @@ function SheetList({
       {results.length === 0 && <p className="px-4 py-6 text-sm text-muted-foreground">No matches</p>}
       {results.map(row)}
     </ListSection>
+  )
+}
+
+// One collectible pin: the pin on its place, how far, how you collect it, and a few photos.
+const CARD_PHOTOS = 4
+
+function PinCard({ item, collected, onSelect }: { item: MapItem; collected: boolean; onSelect: () => void }) {
+  const pin = item.pin!
+  const trip = travelFromYou(item.coords)
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="mx-4 block w-[calc(100%-2rem)] overflow-hidden rounded-2xl border bg-background text-left active:bg-muted"
+    >
+      <div className="flex items-start gap-3 p-3">
+        <div className="relative h-[4.75rem] w-[4.75rem] shrink-0">
+          <ImagePlaceholder className="size-full" />
+          <PinShape
+            shape={pin.shape}
+            status={pin.status}
+            collected={collected}
+            className="absolute bottom-1 left-1/2 size-11 -translate-x-1/2 drop-shadow-md"
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-2">
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold">{pin.name}</p>
+            {collected ? (
+              <Check className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            )}
+          </div>
+          <p className="truncate text-xs text-muted-foreground">{formatMinutes(trip.walk)} walk</p>
+          <p className="truncate text-xs tabular-nums">{collected ? 'Collected' : <PinStatusText pin={pin} verbose />}</p>
+          <p className="truncate text-xs text-muted-foreground">{collectMethod(pin)}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {pinKindLabel[pin.kind]} · {pin.rarity}
+          </p>
+        </div>
+      </div>
+      {/* Padding sits outside the scroller so the first and last thumbs stay inset */}
+      <div className="px-3 pb-3">
+        <div aria-label={`Photos of ${item.place.name}`} className="no-scrollbar flex snap-x gap-2 overflow-x-auto overscroll-x-contain">
+          {Array.from({ length: CARD_PHOTOS }, (_, i) => (
+            <ImagePlaceholder key={i} className="aspect-[4/3] w-[calc((100%-1rem)/3.15)] shrink-0 snap-start" />
+          ))}
+        </div>
+      </div>
+    </button>
   )
 }
 

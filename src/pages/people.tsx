@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
+import { Plus } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { buttonVariants } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
-import { chats, people, personById, type Person } from '@/data/mock'
+import { useConnections } from '@/lib/connections'
+import { chats, personById, type Person } from '@/data/mock'
 
 type Metric = 'pins' | 'places'
 
@@ -12,7 +15,11 @@ const initials = (p: Person) => p.name.slice(0, 2).toUpperCase()
 
 export default function PeoplePage() {
   const [metric, setMetric] = useState<Metric>('pins')
-  const ranked = [...people].sort((a, b) => b[metric] - a[metric])
+  const mine = useConnections().flatMap((id) => {
+    const person = personById(id)
+    return person ? [person] : []
+  })
+  const ranked = [...mine].sort((a, b) => b[metric] - a[metric])
   // Podium order: 2nd, 1st, 3rd
   const podium = [ranked[1], ranked[0], ranked[2]]
   const podiumRank = [2, 1, 3]
@@ -20,7 +27,18 @@ export default function PeoplePage() {
 
   return (
     <div className="pb-28">
-      <PageHeader title="People" />
+      <PageHeader
+        title="People"
+        action={
+          <Link
+            to="/people/add"
+            aria-label="Add someone"
+            className={cn(buttonVariants({ variant: 'outline', size: 'icon-lg' }), 'rounded-full')}
+          >
+            <Plus className="size-5" />
+          </Link>
+        }
+      />
 
       <div className="space-y-6 px-4">
         <section className="rounded-2xl border p-4">

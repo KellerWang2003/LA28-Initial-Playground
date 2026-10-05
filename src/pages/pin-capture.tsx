@@ -315,7 +315,7 @@ function TaskMove({
       {justCompleted && (
         <p className="mt-2 flex items-center gap-1 text-sm font-semibold tabular-nums">
           <Flame className="size-4 fill-current" />+{challenge.reward}
-          <span className="font-normal text-muted-foreground">Torches · claim in your Passport</span>
+          <span className="font-normal text-muted-foreground">Torches added</span>
         </p>
       )}
     </div>

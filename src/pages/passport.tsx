@@ -7,7 +7,7 @@ import { ShapeSticker } from '@/components/shape-art'
 import { ImagePlaceholder } from '@/components/image-placeholder'
 import { SEED_COLLECTED, useCollected, useCustomIds } from '@/lib/collected'
 import { CustomPin } from '@/components/place-photo'
-import { claimChallenge, redeemItem, useWallet } from '@/lib/wallet'
+import { redeemItem, useWallet } from '@/lib/wallet'
 import { formatCountdown, useRemaining } from '@/lib/clock'
 import { cn } from '@/lib/utils'
 import { PINS, type Pin } from '@/data/la28'
@@ -18,6 +18,7 @@ import {
   PIN_VALUE,
   STORE_ITEMS,
   WEEKLY_RESET,
+  challengeDone,
   pinsIn,
   type Challenge,
   type StoreItem,
@@ -140,25 +141,19 @@ function PinTile({ pin, have, custom }: { pin: Pin; have: boolean; custom?: bool
   )
 }
 
-// ---- Challenges: daily and weekly, claim Torches when complete ----
+// ---- Challenges: daily and weekly. Reaching the goal pays the Torches. ----
 
 function Challenges({ collected }: { collected: string[] }) {
-  const { claimed } = useWallet()
-  const today = collected.filter((id) => !SEED_COLLECTED.includes(id)).length
-
-  const progressOf = (c: Challenge) =>
-    c.progress.type === 'static' ? c.progress.done : c.progress.type === 'pinsToday' ? today : collected.length
-
   return (
     <div className="space-y-7 pt-2">
       <ChallengeGroup title="Daily" resetsAt={DAILY_RESET}>
         {CHALLENGES.filter((c) => c.period === 'daily').map((c) => (
-          <ChallengeRow key={c.id} challenge={c} done={progressOf(c)} claimed={claimed.includes(c.id)} />
+          <ChallengeRow key={c.id} challenge={c} done={challengeDone(c, collected, SEED_COLLECTED)} />
         ))}
       </ChallengeGroup>
       <ChallengeGroup title="Weekly" resetsAt={WEEKLY_RESET}>
         {CHALLENGES.filter((c) => c.period === 'weekly').map((c) => (
-          <ChallengeRow key={c.id} challenge={c} done={progressOf(c)} claimed={claimed.includes(c.id)} />
+          <ChallengeRow key={c.id} challenge={c} done={challengeDone(c, collected, SEED_COLLECTED)} />
         ))}
       </ChallengeGroup>
       <p className="text-center text-xs text-muted-foreground">
@@ -181,10 +176,10 @@ function ChallengeGroup({ title, resetsAt, children }: { title: string; resetsAt
   )
 }
 
-function ChallengeRow({ challenge, done, claimed }: { challenge: Challenge; done: number; claimed: boolean }) {
+function ChallengeRow({ challenge, done }: { challenge: Challenge; done: number }) {
   const complete = done >= challenge.goal
   return (
-    <li className={cn('rounded-2xl border p-3', claimed && 'opacity-60')}>
+    <li className={cn('rounded-2xl border p-3', complete && 'opacity-60')}>
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">{challenge.title}</p>
@@ -196,18 +191,14 @@ function ChallengeRow({ challenge, done, claimed }: { challenge: Challenge; done
         <div className="flex-1">
           <Progress value={done} max={challenge.goal} />
         </div>
-        <span className="w-10 text-right text-xs text-muted-foreground tabular-nums">
+        <span className="w-10 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
           {Math.min(done, challenge.goal)}/{challenge.goal}
         </span>
-        {claimed ? (
-          <span className="flex w-20 items-center justify-end gap-1 text-xs text-muted-foreground">
+        {complete && (
+          <span className="flex shrink-0 items-center justify-end gap-1 text-xs text-muted-foreground">
             <Check className="size-3.5" />
-            Claimed
+            Completed
           </span>
-        ) : (
-          <Button size="sm" className="w-20" disabled={!complete} onClick={() => claimChallenge(challenge.id)}>
-            Claim
-          </Button>
         )}
       </div>
     </li>

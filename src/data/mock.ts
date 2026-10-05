@@ -37,6 +37,26 @@ export const medalTable: CountryMedals[] = [
   { code: 'NZL', flag: '🇳🇿', name: 'New Zealand', gold: 2, silver: 2, bronze: 2, bySport: [m('Rowing', 1, 1, 0), m('Sailing', 1, 0, 1), m('Other', 0, 1, 1)] },
 ]
 
+// Fictional athletes for Day 7 (Thu, July 20, 2028). Lines match sessions in la28.ts.
+export type Athlete = {
+  id: string
+  name: string
+  code: string
+  flag: string
+  sport: string
+  line: string
+}
+
+export const athletes: Athlete[] = [
+  { id: 'hale', name: 'Noah Hale', code: 'USA', flag: '🇺🇸', sport: 'Swimming', line: "In the men's 200m freestyle final, next in tonight's session at SoFi Stadium." },
+  { id: 'byrne', name: 'Isla Byrne', code: 'AUS', flag: '🇦🇺', sport: 'Swimming', line: "Won the women's 100m backstroke final earlier in the SoFi finals session." },
+  { id: 'sato', name: 'Haruto Sato', code: 'JPN', flag: '🇯🇵', sport: 'Gymnastics', line: "Leading the men's all-around final at Crypto.com Arena, rotation 4 of 6." },
+  { id: 'kipkoech', name: 'Jonah Kipkoech', code: 'KEN', flag: '🇰🇪', sport: 'Athletics', line: "Racing the men's 10,000m final at the LA Memorial Coliseum at 8:00 PM." },
+  { id: 'campbell', name: 'Andre Campbell', code: 'JAM', flag: '🇯🇲', sport: 'Athletics', line: "Running in the men's 100m heats tonight at the Coliseum." },
+  { id: 'moreau', name: 'Alex Moreau', code: 'AUS', flag: '🇦🇺', sport: 'Basketball', line: 'On the floor for Australia against Serbia at Intuit Dome, second quarter.' },
+  { id: 'ferreira', name: 'Lucas Ferreira', code: 'BRA', flag: '🇧🇷', sport: 'Football', line: "Starts for Brazil against Morocco at the Rose Bowl at 8:30 PM." },
+]
+
 // ---- People ----
 
 export type Person = { id: string; name: string; flag: string; pins: number; places: number }
@@ -50,7 +70,28 @@ export const people: Person[] = [
   { id: 'danny', name: 'Danny', flag: '🇺🇸', pins: 21, places: 8 },
 ]
 
-export const personById = (id: string) => people.find((p) => p.id === id)
+// Fans you can meet by scanning. They stay off your people list until you add them.
+export const meetable: Person[] = [
+  { id: 'lina', name: 'Lina', flag: '🇲🇽', pins: 18, places: 7 },
+  { id: 'omar', name: 'Omar', flag: '🇲🇦', pins: 15, places: 9 },
+  { id: 'noor', name: 'Noor', flag: '🇳🇱', pins: 12, places: 5 },
+]
+
+// Stable id encoded in this user's own code
+export const ME_ID = 'me'
+
+export const personById = (id: string) => people.find((p) => p.id === id) ?? meetable.find((p) => p.id === id)
+
+export const fanCode = (id: string) => `la28:${id}`
+
+// `la28:lina` or a bare id. Blank input returns null.
+export function idFromFanCode(raw: string) {
+  const text = raw.trim().toLowerCase()
+  if (!text) return null
+  const id = text.startsWith('la28:') ? text.slice(5) : text
+  if (!/^[a-z0-9-]+$/.test(id)) return null
+  return id
+}
 
 export type ChatPreview = { id: string; personId: string; last: string; time: string; unread: boolean }
 

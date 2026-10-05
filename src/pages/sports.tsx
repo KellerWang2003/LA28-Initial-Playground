@@ -1,10 +1,13 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { LiveTimer } from '@/components/live-timer'
-import { MedalTable } from '@/components/medal-table'
+import { MedalTable, medalDot } from '@/components/medal-table'
 import { ShapeIcon } from '@/components/shape-art'
-import { medalTable } from '@/data/mock'
+import { buttonVariants } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { athletes, medalTable } from '@/data/mock'
 import { followedNames, useFollowedSports } from '@/lib/followed-sports'
 import {
   SCHEDULE,
@@ -22,168 +25,298 @@ const statusOrder: Record<SessionStatus, number> = { live: 0, upcoming: 1, finis
 
 const byTime = (a: Session, b: Session) => `${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`)
 
-function sectionsFor(sports: string[]) {
-  return sports
-    .map((sport) => ({
-      sport,
-      sessions: SCHEDULE.filter((s) => s.sport === sport).sort(
-        (a, b) => statusOrder[a.status] - statusOrder[b.status] || byTime(a, b),
-      ),
-    }))
-    .sort((a, b) => {
-      const next = (sessions: Session[]) => sessions.find((s) => s.status !== 'finished')
-      const rank = (sessions: Session[]) => {
-        const lead = next(sessions)
-        return lead ? statusOrder[lead.status] * 1e15 + Date.parse(`${lead.date}T${lead.start}`) : Number.POSITIVE_INFINITY
-      }
-      return rank(a.sessions) - rank(b.sessions) || a.sport.localeCompare(b.sport)
-    })
-}
+const medalSum = (c: { gold: number; silver: number; bronze: number }) => c.gold + c.silver + c.bronze
 
-function followingLabel(names: string[]) {
-  if (names.length <= 1) return names[0] ?? ''
-  if (names.length === 2) return `${names[0]} and ${names[1]}`
-  return `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`
+function sportMedals(sport: string) {
+  return medalTable
+    .flatMap((country) => {
+      const row = country.bySport.find((s) => s.sport === sport)
+      if (!row || medalSum(row) === 0) return []
+      return [{ code: country.code, flag: country.flag, name: country.name, ...row }]
+    })
+    .sort((a, b) => b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze || a.code.localeCompare(b.code))
 }
 
 export default function SportsPage() {
-  const selected = useFollowedSports()
-  const followed = followedNames(selected)
-  const cares = (session: Session) => followed.includes(session.sport)
-  const liveNow = SCHEDULE.filter((s) => s.status === 'live' && cares(s)).sort(byTime)
-  const comingUp = SCHEDULE.filter((s) => s.status === 'upcoming' && cares(s)).sort(byTime)
-  const sportSections = sectionsFor(followed)
-
   return (
     <div className="pb-28">
       <PageHeader title="Sports" />
 
-      <div className="space-y-6 px-4">
-        <MedalTable rows={medalTable} subtitle="Day 7 · Thu, July 20" />
+      <Tabs defaultValue="overview" className="px-4">
+        <TabsList className="w-full">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="sport">By sport</TabsTrigger>
+          <TabsTrigger value="athletes">By athletes</TabsTrigger>
+        </TabsList>
 
-        {followed.length === 0 ? (
-          <section className="rounded-2xl border p-4">
-            <h2 className="font-heading font-semibold">No sports selected</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Choose the sports you care about, and this page will show only those.</p>
-            <Link to="/profile" className="mt-3 inline-block text-sm font-medium underline">
-              Choose sports
-            </Link>
-          </section>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Following {followingLabel(followed)}.{' '}
-            <Link to="/profile" className="font-medium text-foreground underline">
-              Edit
-            </Link>
-          </p>
-        )}
+        <TabsContent value="overview" className="space-y-6 pt-4">
+          <MedalTable rows={medalTable} subtitle="Day 7 · Thu, July 20" />
+          <Timeline />
+        </TabsContent>
 
-        {liveNow.length > 0 && (
-          <section>
-            <h2 className="mb-2 font-heading font-semibold">Happening now</h2>
-            <ul className="space-y-2">
-              {liveNow.map((session) => (
-                <SessionCard key={session.id} session={session} />
-              ))}
-            </ul>
-          </section>
-        )}
+        <TabsContent value="sport" className="pt-4">
+          <BySport />
+        </TabsContent>
 
-        {comingUp.length > 0 && (
-          <section>
-            <h2 className="mb-2 font-heading font-semibold">Coming up</h2>
-            <ul className="space-y-2">
-              {comingUp.map((session) => (
-                <SessionCard key={session.id} session={session} />
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {sportSections.length > 0 && (
-          <section className="space-y-5">
-            <h2 className="font-heading font-semibold">By sport</h2>
-            {sportSections.map(({ sport, sessions }) => (
-              <SportSection key={sport} sport={sport} sessions={sessions} />
-            ))}
-          </section>
-        )}
-      </div>
+        <TabsContent value="athletes" className="pt-4">
+          <ByAthletes />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
 
-function SportSection({ sport, sessions }: { sport: string; sessions: Session[] }) {
-  const shape = SPORT_SHAPE[sport]
-  const live = sessions.filter((s) => s.status === 'live').length
+function Timeline() {
+  const followed = followedNames(useFollowedSports())
+  const sessions = SCHEDULE.filter(
+    (session) => session.status !== 'finished' && followed.includes(session.sport),
+  ).sort(byTime)
+
+  if (followed.length === 0) {
+    return (
+      <section className="rounded-2xl border p-4">
+        <h2 className="font-heading font-semibold">No sports selected</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Choose the sports you care about, and the timeline will show only those.
+        </p>
+        <Link to="/profile" className="mt-3 inline-block text-sm font-medium underline">
+          Choose sports
+        </Link>
+      </section>
+    )
+  }
+
   return (
     <section>
-      <div className="mb-1 flex items-center gap-2">
-        {shape && <ShapeIcon shape={shape} className="size-5 shrink-0" />}
-        <h3 className="font-heading font-semibold">{sport}</h3>
-        <span className="ml-auto text-xs text-muted-foreground">
-          {live > 0 ? `${live} live` : `${sessions.length} sessions`}
-        </span>
-      </div>
-      <ul className="rounded-2xl border px-4">
-        {sessions.map((session) => (
-          <SportSession key={session.id} session={session} />
-        ))}
-      </ul>
+      <h2 className="mb-2 font-heading font-semibold">Timeline</h2>
+      {sessions.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nothing live or coming up for the sports you follow.</p>
+      ) : (
+        <ol className="relative rounded-2xl border px-4 py-4">
+          {sessions.length > 1 && (
+            <span aria-hidden className="absolute top-6 bottom-6 left-[21px] w-px bg-foreground/20" />
+          )}
+          {sessions.map((session, index) => (
+            <TimelineItem key={session.id} session={session} last={index === sessions.length - 1} />
+          ))}
+        </ol>
+      )}
     </section>
   )
 }
 
-function SportSession({ session }: { session: Session }) {
+function TimelineItem({ session, last }: { session: Session; last: boolean }) {
   const live = session.status === 'live'
+  const detail =
+    live
+      ? sessionLine(session)
+      : session.teams
+        ? session.teams.join(' vs ')
+        : session.events?.join(' · ')
+
   return (
-    <li className="flex items-start justify-between gap-3 border-b py-3 last:border-b-0">
-      <div className="min-w-0">
-        <p className="truncate font-medium">{session.title}</p>
-        <p className="truncate text-xs text-muted-foreground">
+    <li className="flex gap-3">
+      <div className="relative z-10 flex w-3 shrink-0 justify-center">
+        <span
+          className={cn(
+            'mt-1.5 size-3 shrink-0 rounded-full',
+            live ? 'bg-red-500 ring-2 ring-background' : 'border-2 border-muted-foreground/50 bg-background',
+          )}
+        />
+      </div>
+      <div className={cn('min-w-0 flex-1', !last && 'pb-5')}>
+        <div className="flex items-center justify-between gap-2">
+          <p className="truncate text-xs text-muted-foreground">
+            {live ? 'Live' : `${formatDate(session.date)} · ${formatTime(session.start)}`}
+            {' · '}
+            {session.sport}
+            {session.medal && ' · Medal event'}
+          </p>
+          {live && <LiveTimer since={`${session.date}T${session.start}`} className="shrink-0 shadow-none" />}
+        </div>
+        <p className="mt-0.5 font-medium">{session.title}</p>
+        {detail && <p className="mt-0.5 text-sm text-muted-foreground">{detail}</p>}
+        <p className="mt-0.5 text-xs text-muted-foreground">
           {placeById(session.venue).name}
-          {session.medal && ' · Medal event'}
-          {!live && session.status === 'finished' && ' · Final'}
+          {!live && ` · ${formatTime(session.start)}–${formatTime(session.end)}`}
         </p>
       </div>
-      {live ? (
-        <LiveTimer since={`${session.date}T${session.start}`} className="shrink-0 shadow-none" />
-      ) : (
-        <p className="shrink-0 text-right text-xs text-muted-foreground">
-          {session.date === TODAY ? 'Today' : formatDate(session.date)}
-          <br />
-          {formatTime(session.start)}
-        </p>
-      )}
     </li>
   )
 }
 
-function SessionCard({ session }: { session: Session }) {
-  const live = session.status === 'live'
-  // Upcoming sessions show who's playing instead of repeating the time
-  const line =
-    session.status === 'upcoming'
-      ? session.teams
-        ? session.teams.join(' vs ')
-        : session.events?.join(', ')
-      : sessionLine(session)
+function BySport() {
+  const followed = followedNames(useFollowedSports())
+  const [picked, setPicked] = useState(followed[0] ?? '')
+  const sport = followed.includes(picked) ? picked : (followed[0] ?? '')
+
+  if (followed.length === 0) {
+    return (
+      <section className="rounded-2xl border p-4">
+        <h2 className="font-heading font-semibold">No sports selected</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Choose which sports to show on this tab.</p>
+        <Link to="/profile" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'mt-3 rounded-full')}>
+          Edit
+        </Link>
+      </section>
+    )
+  }
+
   return (
-    <li className="rounded-2xl border p-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="truncate text-xs text-muted-foreground">
-          {session.sport}
-          {session.medal && ' · Medal event'}
-        </p>
+    <div className="space-y-5">
+      <div className="flex items-center gap-2">
+        <div className="no-scrollbar flex min-w-0 flex-1 gap-2 overflow-x-auto">
+          {followed.map((name) => (
+            <button
+              key={name}
+              type="button"
+              aria-pressed={name === sport}
+              onClick={() => setPicked(name)}
+              className={cn(
+                'h-9 shrink-0 rounded-full border px-3 text-sm font-medium',
+                name === sport ? 'border-foreground bg-foreground text-background' : 'text-foreground',
+              )}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+        <Link to="/profile" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-full')}>
+          Edit
+        </Link>
+      </div>
+      <SportDetail sport={sport} />
+    </div>
+  )
+}
+
+function SportDetail({ sport }: { sport: string }) {
+  const shape = SPORT_SHAPE[sport]
+  const standings = sportMedals(sport)
+  const sessions = SCHEDULE.filter((session) => session.sport === sport).sort(
+    (a, b) => statusOrder[a.status] - statusOrder[b.status] || byTime(a, b),
+  )
+  const groups = (
+    [
+      ['Live', 'live'],
+      ['Upcoming', 'upcoming'],
+      ['Finished', 'finished'],
+    ] as const
+  )
+    .map(([label, status]) => ({ label, sessions: sessions.filter((session) => session.status === status) }))
+    .filter((group) => group.sessions.length > 0)
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-2">
+        {shape && <ShapeIcon shape={shape} className="size-5 shrink-0" />}
+        <h2 className="font-heading font-semibold">{sport}</h2>
+      </div>
+
+      {standings.length > 0 ? (
+        <section>
+          <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Standings</h3>
+          <div className="overflow-hidden rounded-2xl border">
+            <div className="flex items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground">
+              <span className="flex-1">Team</span>
+              <span className="flex gap-3">
+                {(['gold', 'silver', 'bronze'] as const).map((medal) => (
+                  <span key={medal} className="flex w-5 justify-center" aria-label={medal}>
+                    <span className={cn('size-2.5 rounded-full', medalDot[medal])} />
+                  </span>
+                ))}
+                <span className="w-6 text-right">Tot</span>
+              </span>
+            </div>
+            <ol>
+              {standings.map((row, index) => (
+                <li
+                  key={row.code}
+                  className="flex items-center gap-2 border-b px-4 py-2 text-sm tabular-nums last:border-b-0"
+                >
+                  <span className="w-5 text-muted-foreground">{index + 1}</span>
+                  <span className="text-base leading-none">{row.flag}</span>
+                  <span className="font-medium">{row.code}</span>
+                  <span className="truncate text-xs text-muted-foreground">{row.name}</span>
+                  <span className="ml-auto flex gap-3">
+                    <span className="w-5 text-center">{row.gold}</span>
+                    <span className="w-5 text-center">{row.silver}</span>
+                    <span className="w-5 text-center">{row.bronze}</span>
+                    <span className="w-6 text-right font-medium">{medalSum(row)}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+      ) : (
+        <p className="text-sm text-muted-foreground">No medal standings for {sport} yet.</p>
+      )}
+
+      {groups.map((group) => (
+        <section key={group.label}>
+          <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</h3>
+          <ul className="rounded-2xl border px-4">
+            {group.sessions.map((session) => (
+              <SessionRow key={session.id} session={session} />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+function SessionRow({ session }: { session: Session }) {
+  const live = session.status === 'live'
+  const extra =
+    live || session.status === 'finished'
+      ? sessionLine(session)
+      : session.teams
+        ? session.teams.join(' vs ')
+        : session.events?.join(' · ')
+
+  return (
+    <li className="border-b py-3 last:border-b-0">
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 font-medium">{session.title}</p>
         {live && <LiveTimer since={`${session.date}T${session.start}`} className="shrink-0 shadow-none" />}
       </div>
-      <p className="mt-1 font-medium">{session.title}</p>
-      {line && <p className={cn('mt-1 text-sm', !live && 'text-muted-foreground')}>{line}</p>}
-      <p className="mt-1 text-xs text-muted-foreground">
-        {placeById(session.venue).name} · {session.date !== TODAY && `${formatDate(session.date)}, `}
-        {formatTime(session.start)}–{formatTime(session.end)}
-        {session.fansOnApp && ` · ${session.fansOnApp.toLocaleString()} fans on the app`}
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        {placeById(session.venue).name}
+        {' · '}
+        {session.date === TODAY ? 'Today' : formatDate(session.date)} {formatTime(session.start)}–{formatTime(session.end)}
+        {session.medal && ' · Medal event'}
       </p>
+      {extra && <p className="mt-1 text-sm text-muted-foreground">{extra}</p>}
     </li>
+  )
+}
+
+function ByAthletes() {
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">Fictional athletes for Day 7 · Thu, July 20.</p>
+      <ul className="space-y-2">
+        {athletes.map((athlete) => {
+          const shape = SPORT_SHAPE[athlete.sport]
+          return (
+            <li key={athlete.id} className="rounded-2xl border p-4">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl leading-none">{athlete.flag}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{athlete.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {athlete.code} · {athlete.sport}
+                  </p>
+                </div>
+                {shape && <ShapeIcon shape={shape} className="size-5 shrink-0 text-muted-foreground" />}
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">{athlete.line}</p>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
   )
 }

@@ -49,8 +49,15 @@ export type Challenge = {
   goal: number
   reward: number
   progress: ChallengeProgress
-  // Already claimed before today
+  // Already paid out before today. Its reward is in STARTING_TORCHES, so completion does not add it again.
   claimed?: boolean
+}
+
+// Progress toward a challenge. Daily pin goals ignore pins collected before today.
+export function challengeDone(challenge: Challenge, collected: readonly string[], seedCollected: readonly string[]) {
+  if (challenge.progress.type === 'static') return challenge.progress.done
+  if (challenge.progress.type === 'pinsToday') return collected.filter((id) => !seedCollected.includes(id)).length
+  return collected.length
 }
 
 export const CHALLENGES: Challenge[] = [
