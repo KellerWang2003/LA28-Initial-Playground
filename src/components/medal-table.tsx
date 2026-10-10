@@ -86,7 +86,18 @@ function LegendButton({
 
 const PREVIEW = 5
 
-export function MedalTable({ rows, subtitle }: { rows: CountryMedals[]; subtitle: string }) {
+// `drilldown` turns off the per-sport rows, for tables that are already about one sport
+export function MedalTable({
+  rows,
+  subtitle,
+  title = 'Medal table',
+  drilldown = true,
+}: {
+  rows: CountryMedals[]
+  subtitle: string
+  title?: string
+  drilldown?: boolean
+}) {
   const [rankBy, setRankBy] = useState<RankBy>('gold')
   const [expanded, setExpanded] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
@@ -103,14 +114,14 @@ export function MedalTable({ rows, subtitle }: { rows: CountryMedals[]; subtitle
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
           <span className="min-w-0">
-            <span className="block font-heading font-semibold">Medal table</span>
+            <span className="block font-heading font-semibold">{title}</span>
             <span className="block text-xs text-muted-foreground">{subtitle}</span>
           </span>
         </button>
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          aria-label={expanded ? 'Collapse medal table' : 'Expand medal table'}
+          aria-label={expanded ? `Collapse ${title.toLowerCase()}` : `Expand ${title.toLowerCase()}`}
           className="shrink-0 text-muted-foreground"
         >
           <ChevronDown className={cn('size-4 transition-transform', expanded && 'rotate-180')} />
@@ -148,13 +159,13 @@ export function MedalTable({ rows, subtitle }: { rows: CountryMedals[]; subtitle
         </thead>
         <tbody>
           {shown.map((c) => {
-            const rowOpen = expanded && open === c.code
+            const rowOpen = expanded && drilldown && open === c.code
             return (
               <Fragment key={c.code}>
                 <tr
-                  onClick={expanded ? () => setOpen(rowOpen ? null : c.code) : undefined}
-                  aria-expanded={expanded ? rowOpen : undefined}
-                  className={cn('border-t', expanded && 'cursor-pointer', rowOpen && 'bg-muted/60')}
+                  onClick={expanded && drilldown ? () => setOpen(rowOpen ? null : c.code) : undefined}
+                  aria-expanded={expanded && drilldown ? rowOpen : undefined}
+                  className={cn('border-t', expanded && drilldown && 'cursor-pointer', rowOpen && 'bg-muted/60')}
                 >
                   <td className="py-2.5 pl-4 text-muted-foreground">
                     {c.shared && '='}
@@ -165,7 +176,7 @@ export function MedalTable({ rows, subtitle }: { rows: CountryMedals[]; subtitle
                       <span className="text-base leading-none">{c.flag}</span>
                       <span className="font-medium">{c.code}</span>
                       <span className="truncate text-xs text-muted-foreground">{c.name}</span>
-                      {expanded && (
+                      {expanded && drilldown && (
                         <ChevronDown
                           className={cn(
                             'ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform',
@@ -209,7 +220,7 @@ export function MedalTable({ rows, subtitle }: { rows: CountryMedals[]; subtitle
 
       {expanded && (
         <p className="border-t px-4 py-3 text-xs text-muted-foreground">
-          {rankNote[rankBy]} Tap a team for medals by sport.
+          {rankNote[rankBy]}{drilldown && ' Tap a team for medals by sport.'}
         </p>
       )}
     </section>

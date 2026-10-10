@@ -1,25 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Camera, Check, ChevronUp, Flame, Lock, MapPin, QrCode, Search, Ticket, Timer, Users, type LucideIcon } from 'lucide-react'
+import { Camera, Check, ChevronUp, Flame, Lock, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PinStatusText } from '@/components/pin-art'
+import { BonusList } from '@/components/bonus-list'
+import { useBonusMarks } from '@/lib/bonuses'
+import { usePinLocked } from '@/lib/clock'
+import { useDebug } from '@/lib/debug'
 import { cn } from '@/lib/utils'
-import { collectTaskDetail, collectTaskLabel, collectTasks, type CollectTaskKind, type Pin } from '@/data/la28'
-import { GROUP_BONUS, GROUP_SIZE, PIN_VALUE } from '@/data/passport'
-
-const taskIcon: Record<CollectTaskKind, LucideIcon> = {
-  visit: MapPin,
-  photo: Camera,
-  find: Search,
-  scan: QrCode,
-  ticket: Ticket,
-  stay: Timer,
-}
+import { COLLECT_RADIUS_M, type Pin } from '@/data/la28'
+import { bonusesFor } from '@/data/bonuses'
+import { PIN_VALUE } from '@/data/passport'
 
 // Floating collect panel on the pin page, like a mini music player. Collapsed,
-// it shows what collecting takes and "I'm here"; tapping it expands the steps
-// and the optional group bonus. Keeps the action on its own layer above the
-// place info. Position the parent relatively; the panel and its scrim are absolute.
+// it shows the photo to take, how many bonuses there are and "I'm here".
+// Expanded, it splits into Collect (required) and Bonus (optional).
+// Position the parent relatively; the panel and its scrim are absolute.
 export function CollectPanel({
   pin,
   placeName,
@@ -32,8 +28,11 @@ export function CollectPanel({
   onCollect: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const tasks = collectTasks(pin)
-  const locked = pin.status === 'locked'
+  const locked = usePinLocked(pin)
+  const { inRadius } = useDebug()
+  const marks = useBonusMarks()
+  const bonuses = bonusesFor(pin.id)
+  const doneCount = bonuses.filter((b) => marks[b.id]).length
 
   useEffect(() => {
     if (!open) return
@@ -42,23 +41,33 @@ export function CollectPanel({
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
-  const action = (className?: string) => (
-    <Button size="lg" disabled={collected || locked} onClick={onCollect} className={cn('shrink-0 tabular-nums', className)}>
-      {collected ? (
-        <>
-          <Check data-icon="inline-start" />
-          Collected
-        </>
-      ) : locked ? (
-        <>
-          <Lock data-icon="inline-start" />
-          <PinStatusText pin={pin} />
-        </>
-      ) : (
-        'I’m here'
-      )}
-    </Button>
-  )
+  // Collected with bonuses left: the button opens them instead
+  const bonusAction = collected && bonuses.length > 0
+  const action = (className?: string) =>
+    bonusAction ? (
+      <Button size="lg" onClick={() => setOpen(true)} className={cn('shrink-0', className)}>
+        <Sparkles data-icon="inline-start" />
+        Bonus
+      </Button>
+    ) : (
+      <Button size="lg" disabled={collected || locked || !inRadius} onClick={onCollect} className={cn('shrink-0 tabular-nums', className)}>
+        {collected ? (
+          <>
+            <Check data-icon="inline-start" />
+            Collected
+          </>
+        ) : locked ? (
+          <>
+            <Lock data-icon="inline-start" />
+            <PinStatusText pin={pin} />
+          </>
+        ) : !inRadius ? (
+          'Not here yet'
+        ) : (
+          'I’m here'
+        )}
+      </Button>
+    )
 
   return (
     <>
@@ -70,7 +79,7 @@ export function CollectPanel({
       />
 
       <div className="absolute inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-30 overflow-hidden rounded-3xl border bg-background shadow-xl">
-        {/* Summary: the tasks, status and reward. Doubles as the header when expanded. */}
+        {/* Summary: the photo, the bonuses, status and reward. Doubles as the header when expanded. */}
         <div className="flex items-center gap-2 p-3">
           <button
             type="button"
@@ -82,15 +91,16 @@ export function CollectPanel({
           >
             <div className="min-w-0 flex-1 pl-1">
               <ul className="flex items-center gap-1 overflow-hidden">
-                {tasks.map((t) => {
-                  const Icon = taskIcon[t.kind]
-                  return (
-                    <li key={t.kind} className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs font-medium">
-                      <Icon className="size-3.5" />
-                      {collectTaskLabel[t.kind].short}
-                    </li>
-                  )
-                })}
+                <li className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs font-medium">
+                  {collected ? <Check className="size-3.5" /> : <Camera className="size-3.5" />}
+                  Photo
+                </li>
+                {bonuses.length > 0 && (
+                  <li className="flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-xs font-medium tabular-nums">
+                    <Sparkles className="size-3.5" />
+                    {collected ? `${doneCount}/${bonuses.length} bonus` : `+${bonuses.length} bonus`}
+                  </li>
+                )}
               </ul>
               <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
                 {collected ? 'In your Passport' : <PinStatusText pin={pin} verbose />}
@@ -103,59 +113,54 @@ export function CollectPanel({
           {!open && action()}
         </div>
 
-        {/* Details: steps, the group extra, then the action full width */}
+        {/* Details: Collect, then Bonus, then the action full width */}
         <div
           id="collect-steps"
           inert={!open}
           className={cn('grid transition-[grid-template-rows] duration-300 ease-out', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="no-scrollbar max-h-[60dvh] overflow-y-auto border-t px-4 pt-4 pb-3">
-              <h2 className="font-heading font-semibold">How to collect it</h2>
-              <ol className="mt-3 space-y-3">
-                {tasks.map((t, i) => {
-                  const Icon = taskIcon[t.kind]
-                  return (
-                    <li key={t.kind} className="flex gap-3">
-                      <span className="relative flex size-8 shrink-0 items-center justify-center rounded-full border">
-                        <Icon className="size-4" />
-                        <span className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-foreground text-[10px] font-semibold text-background">
-                          {i + 1}
-                        </span>
-                      </span>
-                      <div>
-                        <p className="text-sm font-medium">{collectTaskLabel[t.kind].title}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {(t.detail ?? collectTaskDetail[t.kind]).replace('{place}', placeName)}
-                        </p>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ol>
-
-              <div className="mt-4 flex gap-3 rounded-2xl bg-muted p-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-background">
-                  <Users className="size-4" />
+            <div className="no-scrollbar max-h-[65dvh] overflow-y-auto border-t px-4 pt-4 pb-3">
+              <h2 className="font-heading font-semibold">Collect</h2>
+              <div className="mt-2 flex items-start gap-3 rounded-2xl border p-3">
+                <span
+                  className={cn(
+                    'flex size-10 shrink-0 items-center justify-center rounded-full',
+                    collected ? 'bg-foreground text-background' : 'border',
+                  )}
+                >
+                  {collected ? <Check className="size-4" /> : <Camera className="size-4" />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-sm font-medium">Collect with others</p>
-                    <Badge variant="outline" className="bg-background">
-                      Optional
-                    </Badge>
-                  </div>
+                  <p className="text-sm font-medium">Take any photo here</p>
                   <p className="mt-0.5 text-sm text-muted-foreground">
-                    Capture within the same minute as {GROUP_SIZE - 1} or more people here, friends or other fans. No chatting
-                    or profiles: you only see how many joined.
+                    {collected
+                      ? 'Collected. It’s in your Passport.'
+                      : `Be within about ${COLLECT_RADIUS_M} m of ${placeName}, then snap anything. That collects the pin.`}
                   </p>
                 </div>
-                <p className="flex shrink-0 items-start gap-0.5 text-sm font-semibold tabular-nums">
-                  <Flame className="mt-0.5 size-3.5 fill-current" />+{GROUP_BONUS}
+                <p className={cn('flex shrink-0 items-center gap-0.5 text-sm font-semibold tabular-nums', collected && 'text-muted-foreground')}>
+                  <Flame className="size-3.5 fill-current" />+{PIN_VALUE[pin.rarity]}
                 </p>
               </div>
 
-              {action('mt-4 w-full')}
+              {bonuses.length > 0 && (
+                <>
+                  <div className="mt-5 flex items-center gap-1.5">
+                    <h2 className="font-heading font-semibold">Bonus</h2>
+                    <Badge variant="outline">Optional</Badge>
+                    {collected && (
+                      <span className="ml-auto text-sm text-muted-foreground tabular-nums">
+                        {doneCount} of {bonuses.length} done
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 mb-2 text-sm text-muted-foreground">Extra Torches and a mark on your stamp.</p>
+                  <BonusList bonuses={bonuses} />
+                </>
+              )}
+
+              {!collected && action('mt-4 w-full')}
             </div>
           </div>
         </div>

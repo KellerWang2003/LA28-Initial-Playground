@@ -1,15 +1,36 @@
 import { cn } from '@/lib/utils'
-import { ShapeIcon } from '@/components/shape-art'
 import type { Shape } from '@/data/la28'
 
-// A stand-in photo, stable per pin, until a real camera exists.
-const scenes = [
-  { sky: 'linear-gradient(#8ec5ff, #f6d7a8)', ground: '#d7b48a', sun: '#fff6d8' },
-  { sky: 'linear-gradient(#6d8fd6, #f0a57a)', ground: '#7d9a78', sun: '#ffe3b8' },
-  { sky: 'linear-gradient(#b9dcff, #e7f3ff)', ground: '#8aadc4', sun: '#ffffff' },
-  { sky: 'linear-gradient(#f2b27a, #6d86b8)', ground: '#3e4d5e', sun: '#ffd7a1' },
-  { sky: 'linear-gradient(#7eb0e0, #f2c9a0 70%)', ground: '#c9845a', sun: '#fff1c9' },
-]
+// Real photographs stand in for the camera, so a viewfinder reads as a photo being taken.
+const photos: Record<string, string> = {
+  p_manhattan: 'sunset.jpg',
+  p_hermosa_drop: 'sunset.jpg',
+  p_malibu: 'sunset.jpg',
+  p_marina: 'beach.jpg',
+  p_venice_half: 'beach.jpg',
+  p_venicecanals: 'beach.jpg',
+  p_pier: 'pier.jpg',
+  p_pier_half: 'pier.jpg',
+  p_lacma: 'lamps.jpg',
+  p_sofi: 'stadium.jpg',
+  p_coliseum: 'stadium.jpg',
+  p_intuit: 'stadium.jpg',
+  p_arena: 'stadium.jpg',
+  p_union: 'downtown.jpg',
+  p_angelsflight: 'downtown.jpg',
+  p_chinatown: 'downtown.jpg',
+  p_hwof: 'downtown.jpg',
+  p_griffith: 'downtown.jpg',
+  p_lakehollywood: 'downtown.jpg',
+  'pose-partner': 'person-a.jpg',
+  'pose-you': 'person-b.jpg',
+  'pose-pair': 'pair.jpg',
+  'podium-gold': 'person-a.jpg',
+  'podium-silver': 'person-b.jpg',
+  'podium-bronze': 'person-c.jpg',
+}
+
+const pool = ['sunset.jpg', 'beach.jpg', 'pier.jpg', 'downtown.jpg', 'stadium.jpg', 'lamps.jpg']
 
 function hash(seed: string) {
   let h = 0
@@ -17,14 +38,17 @@ function hash(seed: string) {
   return h
 }
 
-export function PlacePhoto({ seed, shape, className }: { seed: string; shape: Shape; className?: string }) {
-  const scene = scenes[hash(seed) % scenes.length]
+// Also used by the pin photo store, for the photo that collected a pin
+// eslint-disable-next-line react-refresh/only-export-components
+export function photoSrc(seed: string) {
+  const file = seed.endsWith('-both') ? 'pair.jpg' : (photos[seed] ?? pool[hash(seed) % pool.length])
+  return `/camera/${file}`
+}
+
+export function PlacePhoto({ seed, className }: { seed: string; shape: Shape; className?: string }) {
   return (
-    <div className={cn('relative overflow-hidden', className)} aria-hidden>
-      <div className="absolute inset-0" style={{ background: scene.sky }} />
-      <div className="absolute top-[18%] right-[18%] size-[18%] rounded-full" style={{ background: scene.sun }} />
-      <div className="absolute inset-x-0 bottom-0 h-[38%]" style={{ background: scene.ground }} />
-      <ShapeIcon shape={shape} strokeWidth={1.5} className="absolute bottom-[22%] left-1/2 size-1/3 -translate-x-1/2 text-white/90" />
+    <div className={cn('relative overflow-hidden bg-muted', className)} aria-hidden>
+      <img src={photoSrc(seed)} alt="" className="absolute inset-0 size-full object-cover" />
     </div>
   )
 }

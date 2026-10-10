@@ -5,7 +5,7 @@ export type Snap = 'min' | 'half' | 'full'
 
 const SNAPS: Snap[] = ['min', 'half', 'full']
 // Visible height when minimized: handle, search and filters, plus room for the floating tab bar
-const MIN_HEIGHT = 232
+export const MIN_HEIGHT = 232
 // Gap left above the sheet when fully expanded
 const TOP_GAP = 8
 // Movement before a press counts as a drag (and no longer as a tap)
@@ -38,13 +38,16 @@ type Gesture = {
   dragged: boolean
 }
 
-// Native-style sheet that fills its positioned parent. Drag anywhere on it:
-// - not fully open: dragging moves the sheet (the list doesn't scroll yet)
-// - fully open: the list scrolls; once it's at the top, dragging down moves the sheet
+// Native-style sheet that fills its positioned parent.
+// - handle: dragging resizes the sheet; so does the header, except at the middle snap
+// - middle snap: the header (search, filters) scrolls away with the list
+// - minimized: the body stays put (pin cards stay hidden; no list scroll)
+// - middle and fully open: the body scrolls; at the top, dragging down resizes the sheet
 export function BottomSheet({ snap, onSnapChange, hidden, header, children, accessory, minHeight = MIN_HEIGHT }: Props) {
   const boundsRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
   const [parentHeight, setParentHeight] = useState(0)
   const [dragHeight, setDragHeight] = useState<number | null>(null)
   const gesture = useRef<Gesture | null>(null)
@@ -72,9 +75,9 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
     latest.current = { heights, snap, height, onSnapChange }
   })
 
-  // Collapsing puts the list back at the top
+  // Collapsing all the way puts the list back at the top. The middle snap keeps its place.
   useEffect(() => {
-    if (snap !== 'full' && scrollRef.current) scrollRef.current.scrollTop = 0
+    if (snap === 'min' && scrollRef.current) scrollRef.current.scrollTop = 0
   }, [snap])
 
   useEffect(() => {
@@ -91,7 +94,11 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
         lastT: t,
         v: 0,
         h: null,
-        inContent: !!scrollRef.current?.contains(target as Node),
+        // The header sits in the scroll area, but only scrolls like content at the middle snap.
+        // Elsewhere it's a handle: dragging it resizes the sheet.
+        inContent:
+          !!scrollRef.current?.contains(target as Node) &&
+          (latest.current.snap === 'half' || !headerRef.current?.contains(target as Node)),
         mode: 'pending',
         dragged: false,
       }
@@ -104,13 +111,15 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
       const scrollTop = scrollRef.current?.scrollTop ?? 0
       const dx = x - g.startX
       const dy = y - g.startY
+      // Minimized content stays hidden, so only the middle and full snaps scroll
+      const listScrolls = snap === 'half' || snap === 'full'
 
       if (g.mode === 'pending') {
-        // Below full, the list must not start a native scroll while we decide
-        if (g.inContent && snap !== 'full' && cancelable) prevent()
+        // While the list isn't meant to scroll, don't let a touch start a native scroll
+        if (g.inContent && !listScrolls && cancelable) prevent()
         if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return
         if (Math.abs(dx) > Math.abs(dy)) g.mode = 'none'
-        else if (!g.inContent || snap !== 'full') g.mode = 'sheet'
+        else if (!g.inContent || !listScrolls) g.mode = 'sheet'
         else if (scrollTop <= 0 && dy > 0) g.mode = 'sheet'
         else g.mode = 'scroll'
       }
@@ -120,7 +129,7 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
         if (scrollTop <= 0 && y > g.lastY && cancelable) {
           g.mode = 'sheet'
           g.startY = y
-          g.startH = heights.full
+          g.startH = heights[snap]
         } else {
           g.lastY = y
           g.lastT = t
@@ -229,15 +238,25 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
             {accessory}
           </div>
         )}
-        <div className="shrink-0 cursor-grab select-none active:cursor-grabbing">
-          <div className="mx-auto mt-2 mb-3 h-1.5 w-10 rounded-full bg-muted-foreground/30" />
-          {header}
+        <div className="shrink-0 cursor-grab pt-2 pb-3 select-none active:cursor-grabbing">
+          <div className="mx-auto h-1.5 w-10 rounded-full bg-muted-foreground/30" />
         </div>
-        {/* Scrolls only when fully open. A little air so the last card isn't flush with the tab bar. */}
+        {/* Body scrolls at the middle and full snaps. While the sheet is being dragged, or when it is
+            minimized, the body stays clipped so hidden pin cards don't become a long scroll.
+            The header scrolls with it at the middle snap; fully open, it stays pinned on top. */}
         <div
           ref={scrollRef}
-          className={cn('min-h-0 flex-1 overscroll-contain pb-4', snap === 'full' && dragHeight === null ? 'overflow-y-auto' : 'overflow-hidden')}
+          className={cn(
+            'min-h-0 flex-1 overscroll-contain pb-4',
+            (snap === 'half' || snap === 'full') && dragHeight === null ? 'overflow-y-auto' : 'overflow-hidden',
+          )}
         >
+          <div
+            ref={headerRef}
+            className={cn(snap !== 'half' && 'cursor-grab select-none active:cursor-grabbing', snap === 'full' && 'sticky top-0 z-10 bg-background')}
+          >
+            {header}
+          </div>
           {children}
         </div>
       </div>

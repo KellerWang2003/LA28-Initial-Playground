@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router'
 import { CalendarDays, Map, Trophy, Users } from 'lucide-react'
+import { CarryBar } from '@/components/carry-bar'
 import { cn } from '@/lib/utils'
 
 const tabs = [
@@ -20,8 +21,10 @@ export function AppShell() {
 
       <nav
         aria-label="Main"
-        className="absolute inset-x-0 bottom-[max(env(safe-area-inset-bottom),1rem)] z-30 flex justify-center px-4"
+        className="absolute inset-x-0 bottom-[max(env(safe-area-inset-bottom),1rem)] z-30 flex flex-col items-center gap-2 px-4"
       >
+        {/* Carry mode: the baton and its time left, on every tab */}
+        <CarryBar />
         <div className="grid h-16 w-full max-w-sm grid-cols-4 rounded-full border bg-background/95 p-1.5 shadow-lg backdrop-blur">
           {tabs.map(({ to, label, icon: Icon }) => (
             <NavLink

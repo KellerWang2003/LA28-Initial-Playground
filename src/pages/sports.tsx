@@ -4,13 +4,14 @@ import { Search, X } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { LiveTimer } from '@/components/live-timer'
-import { MedalTable, medalDot } from '@/components/medal-table'
+import { MedalTable } from '@/components/medal-table'
+import { GoingButton, MyGames } from '@/components/my-games'
 import { ShapeIcon } from '@/components/shape-art'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { athletes, medalTable } from '@/data/mock'
+import { athletes, medalTable, type Athlete, type CountryMedals } from '@/data/mock'
 import { followedNames, useFollowedSports } from '@/lib/followed-sports'
+import { gameFor, useMyGames } from '@/lib/my-games'
 import {
   SCHEDULE,
   SPORTS,
@@ -23,6 +24,9 @@ import {
   type Session,
   type SessionStatus,
 } from '@/data/la28'
+
+// The filter at the top: every sport, or one
+const ALL = 'all'
 
 const statusOrder: Record<SessionStatus, number> = { live: 0, upcoming: 1, finished: 2 }
 
@@ -46,14 +50,29 @@ const sessionText = (session: Session) =>
     .join(' ')
     .toLowerCase()
 
+const athleteText = (athlete: Athlete) =>
+  [athlete.name, athlete.code, athlete.sport, athlete.line].join(' ').toLowerCase()
+
 export default function SportsPage() {
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState(ALL)
+  const followed = followedNames(useFollowedSports())
 
   function closeSearch() {
     setQuery('')
     setSearching(false)
   }
+
+  function openSport(name: string) {
+    setFilter(name)
+    closeSearch()
+  }
+
+  const q = query.trim()
+  // A sport opened from search stays in the row even if you do not follow it
+  const chips = filter !== ALL && !followed.includes(filter) ? SPORTS.filter((s) => s === filter || followed.includes(s)) : followed
+  const sport = filter === ALL ? undefined : filter
 
   return (
     <div className="pb-28">
@@ -64,7 +83,7 @@ export default function SportsPage() {
             type="button"
             variant="outline"
             size="icon-lg"
-            aria-label={searching ? 'Close search' : 'Search sports'}
+            aria-label={searching ? 'Close search' : 'Search sports, games, and athletes'}
             aria-expanded={searching}
             className="rounded-full"
             onClick={() => (searching ? closeSearch() : setSearching(true))}
@@ -73,55 +92,161 @@ export default function SportsPage() {
           </Button>
         }
         below={
-          searching ? (
-            <div className="px-4 pb-3">
-              <Input
-                autoFocus
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search sports"
-                aria-label="Search sports"
-                className="h-12 rounded-full px-4 text-base"
-              />
-            </div>
-          ) : null
+          <>
+            {searching && (
+              <div className="px-4 pb-3">
+                <Input
+                  autoFocus
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search sports, games, athletes"
+                  aria-label="Search sports, games, and athletes"
+                  className="h-12 rounded-full px-4 text-base"
+                />
+              </div>
+            )}
+            {!q && <SportFilter chips={chips} value={filter} onChange={setFilter} />}
+          </>
         }
       />
 
-      <Tabs defaultValue="overview" className="px-4">
-        <TabsList className="w-full">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="sport">By sport</TabsTrigger>
-          <TabsTrigger value="athletes">By athletes</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6 pt-4">
-          <MedalTable rows={medalTable} subtitle="Day 7 · Thu, July 20" />
-          <Timeline query={query} />
-        </TabsContent>
-
-        <TabsContent value="sport" className="pt-4">
-          <BySport query={query} />
-        </TabsContent>
-
-        <TabsContent value="athletes" className="pt-4">
-          <ByAthletes query={query} />
-        </TabsContent>
-      </Tabs>
+      <div className="px-4">
+        {q ? (
+          <SearchResults query={q} onOpenSport={openSport} />
+        ) : (
+          <div className="space-y-6">
+            <Medals sport={sport} />
+            <MyGames sport={sport} />
+            <Upcoming sport={sport} />
+            {sport && <Athletes sport={sport} />}
+            {sport && <Results sport={sport} />}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
-function Timeline({ query }: { query: string }) {
-  const followed = followedNames(useFollowedSports())
-  const q = query.trim().toLowerCase()
-  const sessions = SCHEDULE.filter((session) => {
-    if (session.status === 'finished') return false
-    if (q) return sessionText(session).includes(q)
-    return followed.includes(session.sport)
-  }).sort(byTime)
+// "All" plus the sports you follow. Everything on the page follows it.
+function SportFilter({ chips, value, onChange }: { chips: string[]; value: string; onChange: (value: string) => void }) {
+  const options = [{ id: ALL, label: 'All' }, ...chips.map((name) => ({ id: name, label: name }))]
+  return (
+    <div className="flex items-center gap-2 px-4 pb-3">
+      <div role="group" aria-label="Filter by sport" className="no-scrollbar flex min-w-0 flex-1 gap-2 overflow-x-auto">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            aria-pressed={option.id === value}
+            onClick={() => onChange(option.id)}
+            className={cn(
+              'h-9 shrink-0 rounded-full border px-3 text-sm font-medium',
+              option.id === value ? 'border-foreground bg-foreground text-background' : 'text-foreground',
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <Link to="/profile/settings#sports" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-full')}>
+        Edit
+      </Link>
+    </div>
+  )
+}
 
-  if (!q && followed.length === 0) {
+// The full table, or only the medals won in one sport
+function Medals({ sport }: { sport?: string }) {
+  if (!sport) return <MedalTable rows={medalTable} subtitle="Day 7 · Thu, July 20" />
+
+  const rows: CountryMedals[] = sportMedals(sport).map((row) => ({ ...row, bySport: [] }))
+  if (rows.length === 0) {
+    return (
+      <section className="rounded-2xl border p-4">
+        <h2 className="font-heading font-semibold">{sport} medals</h2>
+        <p className="mt-1 text-sm text-muted-foreground">No medals awarded in {sport} yet.</p>
+      </section>
+    )
+  }
+  return <MedalTable rows={rows} title={`${sport} medals`} subtitle="Day 7 · Thu, July 20" drilldown={false} />
+}
+
+function SearchResults({ query, onOpenSport }: { query: string; onOpenSport: (sport: string) => void }) {
+  const q = query.toLowerCase()
+  const sports = SPORTS.filter((name) => name.toLowerCase().includes(q))
+  const sessions = SCHEDULE.filter((session) => sessionText(session).includes(q)).sort(
+    (a, b) => statusOrder[a.status] - statusOrder[b.status] || byTime(a, b),
+  )
+  const people = athletes.filter((athlete) => athleteText(athlete).includes(q))
+
+  if (sports.length + sessions.length + people.length === 0) {
+    return <p className="pt-2 text-sm text-muted-foreground">Nothing matches “{query}”.</p>
+  }
+
+  return (
+    <div className="space-y-6 pt-1">
+      {sports.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Sports</h2>
+          <ul className="flex flex-wrap gap-2">
+            {sports.map((name) => {
+              const shape = SPORT_SHAPE[name]
+              return (
+                <li key={name}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenSport(name)}
+                    className="inline-flex h-9 items-center gap-2 rounded-full border px-3 text-sm font-medium"
+                  >
+                    {shape && <ShapeIcon shape={shape} className="size-4 shrink-0" />}
+                    {name}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
+
+      {sessions.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Games</h2>
+          <ul className="rounded-2xl border px-4">
+            {sessions.map((session) => (
+              <SessionRow key={session.id} session={session} showSport />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {people.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Athletes</h2>
+          <ul className="space-y-2">
+            {people.map((athlete) => (
+              <li key={athlete.id}>
+                <AthleteCard athlete={athlete} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  )
+}
+
+function Upcoming({ sport }: { sport?: string }) {
+  const followed = followedNames(useFollowedSports())
+  const mine = useMyGames()
+  // All: the sports you follow, plus any single game you added from another sport.
+  // One sport: everything still ahead in it.
+  const sessions = SCHEDULE.filter(
+    (session) =>
+      session.status !== 'finished' &&
+      (sport ? session.sport === sport : followed.includes(session.sport) || gameFor(mine, session.id)),
+  ).sort(byTime)
+
+  if (!sport && followed.length === 0 && sessions.length === 0) {
     return (
       <section className="rounded-2xl border p-4">
         <h2 className="font-heading font-semibold">No sports selected</h2>
@@ -137,10 +262,10 @@ function Timeline({ query }: { query: string }) {
 
   return (
     <section>
-      <h2 className="mb-2 font-heading font-semibold">Timeline</h2>
+      <h2 className="mb-2 font-heading font-semibold">Upcoming</h2>
       {sessions.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {q ? `No sports match “${query.trim()}”.` : 'Nothing live or coming up for the sports you follow.'}
+          {sport ? `Nothing live or coming up in ${sport}.` : 'Nothing live or coming up for the sports you follow.'}
         </p>
       ) : (
         <ol className="relative rounded-2xl border px-4 py-4">
@@ -187,150 +312,54 @@ function TimelineItem({ session, last }: { session: Session; last: boolean }) {
         </div>
         <p className="mt-0.5 font-medium">{session.title}</p>
         {detail && <p className="mt-0.5 text-sm text-muted-foreground">{detail}</p>}
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {placeById(session.venue).name}
-          {!live && ` · ${formatTime(session.start)}–${formatTime(session.end)}`}
-        </p>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-xs text-muted-foreground">
+            {placeById(session.venue).name}
+            {!live && ` · ${formatTime(session.start)}–${formatTime(session.end)}`}
+          </p>
+          <GoingButton session={session} />
+        </div>
       </div>
     </li>
   )
 }
 
-function BySport({ query }: { query: string }) {
-  const followed = followedNames(useFollowedSports())
-  const q = query.trim().toLowerCase()
-  const sports = q
-    ? SPORTS.filter(
-        (name) =>
-          name.toLowerCase().includes(q) ||
-          SCHEDULE.some((session) => session.sport === name && sessionText(session).includes(q)),
-      )
-    : followed
-  const [picked, setPicked] = useState(sports[0] ?? '')
-  const sport = sports.includes(picked) ? picked : (sports[0] ?? '')
-
-  if (sports.length === 0) {
-    return (
-      <section className="rounded-2xl border p-4">
-        <h2 className="font-heading font-semibold">{q ? 'No sports match' : 'No sports selected'}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {q ? `Nothing matches “${query.trim()}”.` : 'Choose which sports to show on this tab.'}
-        </p>
-        {!q && (
-          <Link to="/profile/settings#sports" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'mt-3 rounded-full')}>
-            Edit
-          </Link>
-        )}
-      </section>
-    )
-  }
+// Inline on a sport, not a tab of its own
+function Athletes({ sport }: { sport: string }) {
+  const sportAthletes = athletes.filter((athlete) => athlete.sport === sport)
+  if (sportAthletes.length === 0) return null
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        <div className="no-scrollbar flex min-w-0 flex-1 gap-2 overflow-x-auto">
-          {sports.map((name) => (
-            <button
-              key={name}
-              type="button"
-              aria-pressed={name === sport}
-              onClick={() => setPicked(name)}
-              className={cn(
-                'h-9 shrink-0 rounded-full border px-3 text-sm font-medium',
-                name === sport ? 'border-foreground bg-foreground text-background' : 'text-foreground',
-              )}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-        <Link to="/profile/settings#sports" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-full')}>
-          Edit
-        </Link>
-      </div>
-      <SportDetail sport={sport} />
-    </div>
+    <section>
+      <h2 className="mb-2 font-heading font-semibold">Athletes</h2>
+      <ul className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4">
+        {sportAthletes.map((athlete) => (
+          <li key={athlete.id} className="w-64 shrink-0 snap-start">
+            <AthleteCard athlete={athlete} className="h-full" />
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
-function SportDetail({ sport }: { sport: string }) {
-  const shape = SPORT_SHAPE[sport]
-  const standings = sportMedals(sport)
-  const sessions = SCHEDULE.filter((session) => session.sport === sport).sort(
-    (a, b) => statusOrder[a.status] - statusOrder[b.status] || byTime(a, b),
-  )
-  const groups = (
-    [
-      ['Live', 'live'],
-      ['Upcoming', 'upcoming'],
-      ['Finished', 'finished'],
-    ] as const
-  )
-    .map(([label, status]) => ({ label, sessions: sessions.filter((session) => session.status === status) }))
-    .filter((group) => group.sessions.length > 0)
+function Results({ sport }: { sport: string }) {
+  const finished = SCHEDULE.filter((session) => session.sport === sport && session.status === 'finished').sort(byTime)
+  if (finished.length === 0) return null
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        {shape && <ShapeIcon shape={shape} className="size-5 shrink-0" />}
-        <h2 className="font-heading font-semibold">{sport}</h2>
-      </div>
-
-      {standings.length > 0 ? (
-        <section>
-          <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Standings</h3>
-          <div className="overflow-hidden rounded-2xl border">
-            <div className="flex items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground">
-              <span className="flex-1">Team</span>
-              <span className="flex gap-3">
-                {(['gold', 'silver', 'bronze'] as const).map((medal) => (
-                  <span key={medal} className="flex w-5 justify-center" aria-label={medal}>
-                    <span className={cn('size-2.5 rounded-full', medalDot[medal])} />
-                  </span>
-                ))}
-                <span className="w-6 text-right">Tot</span>
-              </span>
-            </div>
-            <ol>
-              {standings.map((row, index) => (
-                <li
-                  key={row.code}
-                  className="flex items-center gap-2 border-b px-4 py-2 text-sm tabular-nums last:border-b-0"
-                >
-                  <span className="w-5 text-muted-foreground">{index + 1}</span>
-                  <span className="text-base leading-none">{row.flag}</span>
-                  <span className="font-medium">{row.code}</span>
-                  <span className="truncate text-xs text-muted-foreground">{row.name}</span>
-                  <span className="ml-auto flex gap-3">
-                    <span className="w-5 text-center">{row.gold}</span>
-                    <span className="w-5 text-center">{row.silver}</span>
-                    <span className="w-5 text-center">{row.bronze}</span>
-                    <span className="w-6 text-right font-medium">{medalSum(row)}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-      ) : (
-        <p className="text-sm text-muted-foreground">No medal standings for {sport} yet.</p>
-      )}
-
-      {groups.map((group) => (
-        <section key={group.label}>
-          <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</h3>
-          <ul className="rounded-2xl border px-4">
-            {group.sessions.map((session) => (
-              <SessionRow key={session.id} session={session} />
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
+    <section>
+      <h2 className="mb-2 font-heading font-semibold">Results</h2>
+      <ul className="rounded-2xl border px-4">
+        {finished.map((session) => (
+          <SessionRow key={session.id} session={session} />
+        ))}
+      </ul>
+    </section>
   )
 }
 
-function SessionRow({ session }: { session: Session }) {
+function SessionRow({ session, showSport }: { session: Session; showSport?: boolean }) {
   const live = session.status === 'live'
   const extra =
     live || session.status === 'finished'
@@ -346,49 +375,37 @@ function SessionRow({ session }: { session: Session }) {
         {live && <LiveTimer since={`${session.date}T${session.start}`} className="shrink-0 shadow-none" />}
       </div>
       <p className="mt-0.5 text-xs text-muted-foreground">
+        {showSport && `${session.sport} · `}
         {placeById(session.venue).name}
         {' · '}
         {session.date === TODAY ? 'Today' : formatDate(session.date)} {formatTime(session.start)}–{formatTime(session.end)}
         {session.medal && ' · Medal event'}
       </p>
       {extra && <p className="mt-1 text-sm text-muted-foreground">{extra}</p>}
+      {session.status !== 'finished' && (
+        <div className="mt-2">
+          <GoingButton session={session} />
+        </div>
+      )}
     </li>
   )
 }
 
-function ByAthletes({ query }: { query: string }) {
-  const q = query.trim().toLowerCase()
-  const shown = athletes.filter((athlete) =>
-    [athlete.name, athlete.code, athlete.sport, athlete.line].join(' ').toLowerCase().includes(q),
-  )
-
+function AthleteCard({ athlete, className }: { athlete: Athlete; className?: string }) {
+  const shape = SPORT_SHAPE[athlete.sport]
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">Fictional athletes for Day 7 · Thu, July 20.</p>
-      {shown.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No athletes match “{query.trim()}”.</p>
-      ) : (
-      <ul className="space-y-2">
-        {shown.map((athlete) => {
-          const shape = SPORT_SHAPE[athlete.sport]
-          return (
-            <li key={athlete.id} className="rounded-2xl border p-4">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl leading-none">{athlete.flag}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{athlete.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {athlete.code} · {athlete.sport}
-                  </p>
-                </div>
-                {shape && <ShapeIcon shape={shape} className="size-5 shrink-0 text-muted-foreground" />}
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">{athlete.line}</p>
-            </li>
-          )
-        })}
-      </ul>
-      )}
+    <div className={cn('rounded-2xl border p-4', className)}>
+      <div className="flex items-center gap-3">
+        <span className="text-2xl leading-none">{athlete.flag}</span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{athlete.name}</p>
+          <p className="text-xs text-muted-foreground">
+            {athlete.code} · {athlete.sport}
+          </p>
+        </div>
+        {shape && <ShapeIcon shape={shape} className="size-5 shrink-0 text-muted-foreground" />}
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">{athlete.line}</p>
     </div>
   )
 }

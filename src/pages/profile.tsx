@@ -10,7 +10,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { ME_ID, fanCode, personById } from '@/data/mock'
 import {
-  SCHEDULE,
   SPORT_SHAPE,
   flag,
   formatDate,
@@ -22,7 +21,7 @@ import {
 import type { LngLat } from '@/data/map-layers'
 import { useCollected } from '@/lib/collected'
 import { SEED_CONNECTIONS, useConnections } from '@/lib/connections'
-import { useFollowedSports } from '@/lib/followed-sports'
+import { planned, useMyGames } from '@/lib/my-games'
 import { countryName, useProfile } from '@/lib/profile'
 import { useWallet } from '@/lib/wallet'
 
@@ -40,7 +39,7 @@ export default function ProfilePage() {
   const profile = useProfile()
   const collected = useCollected()
   const connections = useConnections()
-  const followed = useFollowedSports()
+  const myGames = useMyGames()
   const { balance } = useWallet()
 
   const places = exploredPlaces(collected)
@@ -49,8 +48,9 @@ export default function ProfilePage() {
     const person = personById(id)
     return person ? [person] : []
   })
-  const games = SCHEDULE.filter((session) => session.status === 'upcoming' && followed.includes(session.sport))
-    .sort((a, b) => `${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`))
+  const games = planned(myGames)
+    .filter((game) => game.sessionData.status !== 'finished')
+    .map((game) => game.sessionData)
     .slice(0, GAMES_SHOWN)
   const recent = [...collected]
     .reverse()
@@ -127,7 +127,7 @@ export default function ProfilePage() {
         <section>
           <h2 className="font-heading font-semibold">Games you are going to</h2>
           {games.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">No upcoming games for the sports you follow.</p>
+            <p className="mt-2 text-sm text-muted-foreground">No games yet. Add them on the Sports tab.</p>
           ) : (
             <ul className="mt-3 space-y-2">
               {games.map((session) => {

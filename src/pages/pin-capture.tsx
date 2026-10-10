@@ -5,16 +5,24 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PinShape } from '@/components/pin-art'
 import { CustomPin, PlacePhoto } from '@/components/place-photo'
-import { ShapeSticker } from '@/components/shape-art'
+import { PinPhotos } from '@/components/pin-photos'
+import { BatonOffer } from '@/components/baton-offer'
+import { arriveAt } from '@/lib/location'
 import { collectPin, SEED_COLLECTED, useCollected, useCustomIds } from '@/lib/collected'
+import { addCapturePhoto, usePinPhotos } from '@/lib/pin-photos'
 import { cn } from '@/lib/utils'
-import { pinById, pinKindLabel, placeById, type Pin } from '@/data/la28'
-import { CATEGORIES, CHALLENGES, PIN_VALUE, pinsIn } from '@/data/passport'
+import { PINS, pinById, pinKindLabel, placeById, type Pin } from '@/data/la28'
+import { CHALLENGES, PIN_VALUE } from '@/data/passport'
+import { BONUS_REWARD, bonusesFor, inWindow, type Bonus } from '@/data/bonuses'
+import { completeBonus, momentMark } from '@/lib/bonuses'
+import { BonusList } from '@/components/bonus-list'
+import { useClock, usePinLocked } from '@/lib/clock'
 
-type Step = 'camera' | 'making' | 'choose' | 'celebrate' | 'passport' | 'progress'
+type Step = 'camera' | 'making' | 'choose' | 'celebrate' | 'photos' | 'bonus' | 'progress'
 
 // Photo, then a pin made from it (or the location's own pin), then the
-// celebration: it lands in the Passport and moves today's and this week's tasks.
+// celebration, a chance to add more photos from the visit, today's and this
+// week's tasks, and last the bonuses at this pin (if any).
 export default function PinCapturePage() {
   const { pinId = '' } = useParams()
   const navigate = useNavigate()
@@ -23,13 +31,18 @@ export default function PinCapturePage() {
   const pin = pinById(pinId)
   const [step, setStep] = useState<Step>('camera')
   const [custom, setCustom] = useState(false)
+  // Right moment bonuses earned by collecting inside their window
+  const [moments, setMoments] = useState<Bonus[]>([])
+  const now = useClock()
+  const locked = usePinLocked(pin ?? PINS[0])
 
   if (!pin) return <Navigate to="/explore" replace />
 
   const place = placeById(pin.place)
   const done = collected.includes(pin.id)
+  const bonuses = bonusesFor(pin.id)
 
-  if (pin.status === 'locked') {
+  if (locked) {
     return (
       <Screen onBack={() => navigate(-1)}>
         <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
@@ -66,25 +79,34 @@ export default function PinCapturePage() {
 
   function keep(useCustom: boolean) {
     collectPin(pin!.id, useCustom)
+    addCapturePhoto(pin!.id)
+    // Collecting means you're standing there, which is what a baton here checks
+    arriveAt(pin!.place)
+    const inside = bonuses.filter((b) => b.kind === 'moment' && inWindow(b, now))
+    inside.forEach((b) => completeBonus(b.id, momentMark(b, now)))
+    setMoments(inside)
     setCustom(useCustom)
     setStep('celebrate')
   }
 
   return (
-    <Screen onBack={step === 'celebrate' || step === 'passport' || step === 'progress' ? undefined : () => (step === 'camera' ? navigate(-1) : setStep('camera'))}>
+    <Screen onBack={step === 'celebrate' || step === 'photos' || step === 'bonus' || step === 'progress' ? undefined : () => (step === 'camera' ? navigate(-1) : setStep('camera'))}>
       {step === 'camera' && <CameraStep pin={pin} placeName={place.name} onCapture={() => setStep('making')} />}
       {step === 'making' && <MakingStep pin={pin} onDone={() => setStep('choose')} />}
       {step === 'choose' && <ChooseStep pin={pin} onKeep={() => keep(true)} onDefault={() => keep(false)} />}
       {step === 'celebrate' && (
-        <CelebrateStep pin={pin} placeName={place.name} custom={custom} onContinue={() => setStep('passport')} />
+        <CelebrateStep pin={pin} placeName={place.name} custom={custom} moments={moments} onContinue={() => setStep('photos')} />
       )}
-      {step === 'passport' && <PassportStep pin={pin} custom={custom} onContinue={() => setStep('progress')} />}
+      {/* A baton resting at this spot is offered once the pin is stamped */}
+      {step === 'celebrate' && <BatonOffer place={pin.place} />}
+      {step === 'photos' && <PhotosStep pin={pin} onContinue={() => setStep('progress')} />}
       {step === 'progress' && (
         <ProgressStep
-          onMap={() => navigate('/explore', { replace: true })}
+          onMap={() => (bonuses.length ? setStep('bonus') : navigate('/explore', { replace: true }))}
           onPassport={() => navigate('/passport', { replace: true })}
         />
       )}
+      {step === 'bonus' && <BonusStep bonuses={bonuses} onLater={() => navigate('/explore', { replace: true })} />}
     </Screen>
   )
 }
@@ -190,11 +212,13 @@ function CelebrateStep({
   pin,
   placeName,
   custom,
+  moments,
   onContinue,
 }: {
   pin: Pin
   placeName: string
   custom: boolean
+  moments: Bonus[]
   onContinue: () => void
 }) {
   return (
@@ -212,6 +236,18 @@ function CelebrateStep({
           <Flame className="size-5 fill-current" />+<CountUp to={PIN_VALUE[pin.rarity]} />
         </p>
         <p className="text-sm text-muted-foreground">Torches</p>
+        {/* Collected inside a Right moment window: that bonus comes with it */}
+        {moments.map((b) => (
+          <p key={b.id} className="mt-4 flex items-center gap-2 rounded-full border py-1.5 pr-3 pl-1.5 text-sm font-medium tabular-nums">
+            <span className="flex size-6 items-center justify-center rounded-full bg-foreground text-background">
+              <Check className="size-3.5" />
+            </span>
+            {b.mark} bonus
+            <span className="flex items-center gap-0.5 text-muted-foreground">
+              <Flame className="size-3.5 fill-current" />+{BONUS_REWARD.solo}
+            </span>
+          </p>
+        ))}
       </div>
       <Button size="lg" className="w-full shrink-0" onClick={onContinue}>
         Continue
@@ -220,38 +256,42 @@ function CelebrateStep({
   )
 }
 
-function PassportStep({ pin, custom, onContinue }: { pin: Pin; custom: boolean; onContinue: () => void }) {
-  const collected = useCollected()
-  const category = CATEGORIES.find((c) => c.kinds.includes(pin.kind))
-  const mates = category ? pinsIn(category.kinds) : []
-  const have = mates.filter((p) => collected.includes(p.id)).length
-  const others = mates.filter((p) => collected.includes(p.id) && p.id !== pin.id).slice(0, 3)
-
+// The capture photo is already on the pin. Add any others from the visit, or skip.
+function PhotosStep({ pin, onContinue }: { pin: Pin; onContinue: () => void }) {
+  const photos = usePinPhotos(pin.id)
+  const added = photos.length > 1
   return (
     <>
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <p className="text-sm font-medium text-muted-foreground">Added to your Passport</p>
-        <h1 className="mt-1 font-heading text-2xl font-semibold">{category?.title ?? 'Collection'}</h1>
-        <p className="mt-2 text-sm text-muted-foreground tabular-nums">
-          <CountUp from={Math.max(0, have - 1)} to={have} /> of {mates.length}
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto pt-2">
+        <h1 className="font-heading text-2xl font-semibold">Add photos from your visit</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          They stay with {pin.name.replace(/ Pin$/, '')} in your Passport. You can add more later.
         </p>
-        <div className="mt-6 flex items-end justify-center gap-3">
-          {others.map((p) => (
-            <span key={p.id} className="flex size-16 items-center justify-center rounded-2xl bg-muted">
-              <ShapeSticker shape={p.shape} className="size-9 text-foreground" />
-            </span>
-          ))}
-          <span className="flex size-20 items-center justify-center rounded-2xl bg-muted ring-2 ring-foreground">
-            {custom ? (
-              <CustomPin seed={pin.id} shape={pin.shape} className="size-14" />
-            ) : (
-              <ShapeSticker shape={pin.shape} className="size-12 text-foreground" />
-            )}
-          </span>
+        <PinPhotos pinId={pin.id} className="mt-5" />
+      </div>
+      <Button size="lg" variant={added ? 'default' : 'outline'} className="mt-4 w-full shrink-0" onClick={onContinue}>
+        {added ? 'Continue' : 'Skip for now'}
+      </Button>
+    </>
+  )
+}
+
+// The optional challenges here. Opening one replaces the capture flow, so its
+// Continue lands back on the pin.
+function BonusStep({ bonuses, onLater }: { bonuses: Bonus[]; onLater: () => void }) {
+  return (
+    <>
+      <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <div className="mt-auto pt-4">
+          <h1 className="font-heading text-2xl font-semibold">Bonus here</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Optional. Each one adds Torches and a mark on your stamp.</p>
+          <div className="mt-5">
+            <BonusList bonuses={bonuses} replace />
+          </div>
         </div>
       </div>
-      <Button size="lg" className="w-full shrink-0" onClick={onContinue}>
-        Continue
+      <Button size="lg" variant="outline" className="mt-4 w-full shrink-0" onClick={onLater}>
+        Later
       </Button>
     </>
   )

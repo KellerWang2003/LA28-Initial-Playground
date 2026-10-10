@@ -1,8 +1,10 @@
-import { useRef, useState, type ReactNode, type UIEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { Check, ChevronRight, Clock, Gift, Layers, Lock, LocateFixed, Radio, Search, Tv, Users, X } from 'lucide-react'
 import { MapView, UserDot, type MapPadding, type MapStyle, type MapViewHandle } from '@/components/map-view'
-import { BottomSheet, type Snap } from '@/components/bottom-sheet'
+import { BottomSheet, MIN_HEIGHT, type Snap } from '@/components/bottom-sheet'
+import { BatonMarker, DropSpotMarker } from '@/components/baton-art'
+import { CARRY_BAR_SPACE } from '@/components/carry-bar'
 import { ProfileButton } from '@/components/profile-button'
 import { PassportButton } from '@/components/passport-button'
 import { KindIcon, PinShape, PinStatusChip, PinStatusText } from '@/components/pin-art'
@@ -23,23 +25,47 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { useCollected } from '@/lib/collected'
+import { placeCoords, useFanAt, useFanLocation } from '@/lib/location'
+import { dropSpotFor, getBatons, openBatonCard, startDrop, useBatons, useCarried, useOpenCard } from '@/lib/batons'
 import { cn } from '@/lib/utils'
-import { EVENTS, collectTaskLabel, collectTasks, pinCountdownTarget, pinKindLabel, type Pin } from '@/data/la28'
-import { FAKE_USER_LOCATION, allItems, distance, formatMinutes, layers, mapLayers, travelFromYou, type Layer, type MapItem } from '@/data/map-layers'
+import { pinById, pinCountdownTarget, pinKindLabel, placeById, type Pin } from '@/data/la28'
+import { BATON_SPOTS } from '@/data/batons'
+import { bonusesFor } from '@/data/bonuses'
+import { FAKE_USER_LOCATION, allItems, distance, formatMinutes, layers, mapLayers, travelFromYou, type Layer, type LngLat, type MapItem } from '@/data/map-layers'
 
 const mapStyles: { id: MapStyle; label: string }[] = [
   { id: 'light', label: 'Default' },
   { id: 'streets', label: 'Streets' },
   { id: 'satellite', label: 'Satellite' },
+  { id: 'mist', label: 'Mist' },
 ]
 
 const USER_MARKER = 'me'
+
+// Holes in the mist: where you are, and every place you've already collected.
+function mistOpenings(collected: string[], here: LngLat): LngLat[] {
+  const spots: LngLat[] = [here]
+  for (const id of collected) {
+    const pin = pinById(id)
+    if (!pin) continue
+    const place = placeById(pin.place)
+    spots.push([place.lng, place.lat])
+  }
+  return spots
+}
+// Baton markers sit beside whatever pin is at the same spot
+const BATON_MARKER = 'baton:'
+const DROP_MARKER = 'drop:'
+const BATON_OFFSET: [number, number] = [34, -8]
+const DROP_OFFSET: [number, number] = [-34, -4]
 // Zoom level from which every pin shows its status label
 const LABEL_ZOOM = 12
 
 // Space taken by overlays, so the map centers things in the visible area
 // Bottom also leaves room for labels hanging under markers
 const SHEET_PADDING: MapPadding = { top: 112, bottom: 400, left: 72, right: 80 }
+// The baton card covers most of the screen; keep its spot in the strip above it
+const BATON_CARD_PADDING: MapPadding = { top: 72, bottom: 520, left: 48, right: 48 }
 // Cards are taller for pins (photo strip), so leave more room under the selected marker
 const CARDS_PADDING: MapPadding = { top: 96, bottom: 400, left: 48, right: 48 }
 // Placeholder photos per place until real ones exist
@@ -49,8 +75,6 @@ const PLACE_PHOTOS = 5
 // An unfiltered map keeps this many of the nearest relevant markers.
 const PIN_ROW = 14
 const MIX_CAP = 14
-// Recommendation cards across the sheet. Four, in the sheet padding, no sideways scroll.
-const HIGHLIGHTS = 4
 
 // Lower is more relevant. Distance leads; live and expiring only nudge things
 // that are already nearby, so a pin across the city doesn't jump the row.
@@ -90,18 +114,61 @@ export default function ExplorePage() {
   const [mapStyle, setMapStyle] = useState<MapStyle>('light')
   const [threeD, setThreeD] = useState(false)
   const [showLabels, setShowLabels] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const fan = useFanAt()
+  const fanLocation = useFanLocation()
+  const batons = useBatons()
+  const carried = useCarried()
+  const openCard = useOpenCard()
+  // Batons show under every filter. A carried one is on nobody's map; instead
+  // the carrier sees where it can go (any other significant spot).
+  const restingBatons = batons.filter((b) => b.state === 'resting')
+  const dropSpots = carried ? BATON_SPOTS.filter((s) => s !== carried.spot) : []
+  const dropHere = dropSpotFor(carried, fan)
 
   const pinRow = rank(mapLayers.pins).slice(0, PIN_ROW)
   const mix = rank(allItems).slice(0, MIX_CAP)
   // Pins filter keeps every pin (you're looking for them). No filter keeps a short mix.
   const visibleItems = layer === null ? mix : layer === 'pins' ? mapLayers.pins : mapLayers[layer]
-  const showPinRow = !query.trim() && (layer === null || layer === 'pins')
-  const rowPins = (layer === 'pins' ? pinRow : mix.filter((i) => i.kind === 'pin')).slice(0, HIGHLIGHTS)
   const itemById = (id: string) => allItems.find((i) => i.id === id)!
   const markers = [
     ...visibleItems.map((i) => ({ id: i.id, coords: i.coords, offset: i.offset })),
-    { id: USER_MARKER, coords: FAKE_USER_LOCATION },
+    ...restingBatons.map((b) => ({ id: BATON_MARKER + b.id, coords: placeCoords(b.spot), offset: BATON_OFFSET })),
+    ...dropSpots.map((s) => ({ id: DROP_MARKER + s, coords: placeCoords(s), offset: DROP_OFFSET })),
+    { id: USER_MARKER, coords: fanLocation },
   ]
+
+  // A nearby alert or a drop links here with ?baton=: center on it and open its card
+  const batonParam = searchParams.get('baton')
+  useEffect(() => {
+    if (!batonParam) return
+    setSearchParams({}, { replace: true })
+    const baton = getBatons().find((b) => b.id === batonParam)
+    if (!baton) return
+    if (baton.state === 'resting') openBatonCard(baton.id)
+    mapRef.current?.flyTo(placeCoords(baton.spot), BATON_CARD_PADDING)
+  }, [batonParam, setSearchParams])
+
+  function openBaton(id: string) {
+    const baton = batons.find((b) => b.id === id)
+    if (!baton) return
+    clearSelection()
+    openBatonCard(id)
+    mapRef.current?.flyTo(placeCoords(baton.spot), BATON_CARD_PADDING)
+  }
+
+  // Tapping the drop spot you're standing at starts the drop; others just come into view
+  function onDropSpot(spot: string) {
+    if (spot === dropHere) startDrop()
+    else mapRef.current?.flyTo(placeCoords(spot), SHEET_PADDING)
+  }
+
+  function onMarkerClick(id: string) {
+    if (id === USER_MARKER) return
+    if (id.startsWith(BATON_MARKER)) return openBaton(id.slice(BATON_MARKER.length))
+    if (id.startsWith(DROP_MARKER)) return onDropSpot(id.slice(DROP_MARKER.length))
+    select(id)
+  }
 
   const nearby = anchorId
     ? [...visibleItems].sort((a, b) => distance(a.coords, itemById(anchorId).coords) - distance(b.coords, itemById(anchorId).coords))
@@ -138,6 +205,14 @@ export default function ExplorePage() {
 
   function renderMarker(id: string) {
     if (id === USER_MARKER) return <UserDot />
+    if (id.startsWith(BATON_MARKER)) {
+      const baton = batons.find((b) => BATON_MARKER + b.id === id)
+      return baton ? <BatonMarker theme={baton.theme} selected={openCard === baton.id} /> : null
+    }
+    if (id.startsWith(DROP_MARKER)) {
+      const spot = id.slice(DROP_MARKER.length)
+      return <DropSpotMarker here={spot === dropHere} label={placeById(spot).name} />
+    }
     const item = itemById(id)
     return (
       <ItemMarker
@@ -157,13 +232,14 @@ export default function ExplorePage() {
         markers={markers}
         renderMarker={renderMarker}
         selectedId={selectedId}
-        onMarkerClick={(id) => id !== USER_MARKER && select(id)}
+        onMarkerClick={onMarkerClick}
         onBackgroundClick={clearSelection}
         onZoomChange={(z) => setShowLabels(z >= LABEL_ZOOM)}
         initialBounds={initialBounds}
         initialPadding={SHEET_PADDING}
         mapStyle={mapStyle}
         threeD={threeD}
+        revealed={mapStyle === 'mist' ? mistOpenings(collected, fanLocation) : undefined}
       />
 
       {/* Top right: profile + map options (hidden while the sheet is fully open) */}
@@ -212,6 +288,8 @@ export default function ExplorePage() {
         snap={snap}
         onSnapChange={setSnap}
         hidden={selectedId !== null}
+        // Room for the carry bar above the tab bar
+        minHeight={carried ? MIN_HEIGHT + CARRY_BAR_SPACE : undefined}
         accessory={
           <>
             <Button
@@ -219,7 +297,7 @@ export default function ExplorePage() {
               size="icon"
               className="size-12 rounded-full bg-background shadow-md"
               aria-label="My location"
-              onClick={() => mapRef.current?.flyTo(FAKE_USER_LOCATION, SHEET_PADDING)}
+              onClick={() => mapRef.current?.flyTo(fanLocation, SHEET_PADDING)}
             >
               <LocateFixed className="size-5" />
             </Button>
@@ -254,8 +332,6 @@ export default function ExplorePage() {
                 </button>
               ))}
             </div>
-            {/* Highlight row is hidden at the smallest snap; it returns once the sheet is pulled up */}
-            {showPinRow && snap !== 'min' && <PinRecommendRow items={rowPins} />}
           </div>
         }
       >
@@ -269,6 +345,7 @@ export default function ExplorePage() {
           collected={collected}
           onSwipe={onCardSwipe}
           onClose={clearSelection}
+          lift={carried ? CARRY_BAR_SPACE : 0}
         />
       )}
     </div>
@@ -386,55 +463,10 @@ function MarkerVisual({ item, selected, collected }: { item: MapItem; selected: 
 
 // ---- Sheet list ----
 
-// Four recommendation cards across, inside the sheet's horizontal padding.
-// Same cards whether Pins is the active filter or none is. The label is the
-// reason to collect it: nearby, closing soon, or an event's why.
-function PinRecommendRow({ items }: { items: MapItem[] }) {
-  return (
-    <div className="grid grid-cols-4 gap-2 pb-3">
-      {items.slice(0, HIGHLIGHTS).map((item) => {
-        const pin = item.pin!
-        const reason = recommendReason(item)
-        return (
-          <Link
-            key={item.id}
-            to={item.to}
-            aria-label={`${item.title}, ${reason}`}
-            className="min-w-0 overflow-hidden rounded-2xl border bg-background text-left active:scale-[0.98]"
-          >
-            <div className="relative h-24">
-              <ImagePlaceholder className="size-full rounded-none border-0" />
-              <span className="absolute inset-0 flex items-center justify-center">
-                <PinShape shape={pin.shape} status={pin.status} className="size-10 drop-shadow-md" />
-              </span>
-            </div>
-            <div className="px-1.5 py-1.5">
-              <p className="truncate text-[11px] leading-tight font-medium">{item.label}</p>
-              <p className="truncate text-[10px] leading-tight text-muted-foreground">{reason}</p>
-            </div>
-          </Link>
-        )
-      })}
-    </div>
-  )
-}
-
-function recommendReason(item: MapItem) {
-  const pin = item.pin!
-  const walk = travelFromYou(item.coords).walk
-  if (pin.status === 'expiring') return pin.short
-  if (walk <= 25) return 'Near you'
-  const why = EVENTS.find((e) => e.pin === pin.id)?.why
-  if (why) return why
-  if (pin.status === 'locked') return pin.short
-  return `${formatMinutes(walk)} walk`
-}
-
+// Every pin is collected with a photo; some have bonuses on top
 function collectMethod(pin: Pin) {
-  const tasks = collectTasks(pin)
-  const featured = tasks.filter((t) => t.kind !== 'visit')
-  const list = featured.length ? featured : tasks
-  return list.map((t) => (t.kind === 'photo' ? 'Snap a photo' : collectTaskLabel[t.kind].title)).join(' · ')
+  const bonuses = bonusesFor(pin.id).length
+  return bonuses ? `Snap a photo · ${bonuses} bonus` : 'Snap a photo'
 }
 
 function SheetList({
@@ -476,14 +508,14 @@ function SheetList({
     return <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nothing saved yet</p>
   }
 
-  // No filter: the pin row is the pins, and the list is the other relevant things
+  // No filter: the other relevant things nearby
   if (!q && layer === null) {
     const rest = mix.filter((i) => i.kind !== 'pin')
     if (!rest.length) return null
     return <ListSection title="Also nearby">{rest.map(row)}</ListSection>
   }
 
-  // Pins filter: the row above is the recommendations. Under it, every collectible pin.
+  // Pins filter: every collectible pin.
   // Hidden at the smallest snap so only search and the filter chips remain.
   if (!q && layer === 'pins') {
     if (!revealed) return null
@@ -641,11 +673,14 @@ function NearbyCards({
   collected,
   onSwipe,
   onClose,
+  lift,
 }: {
   items: MapItem[]
   collected: string[]
   onSwipe: (id: string) => void
   onClose: () => void
+  // Extra space above the tab bar (the carry bar)
+  lift: number
 }) {
   const navigate = useNavigate()
   const settle = useRef<number | undefined>(undefined)
@@ -664,7 +699,10 @@ function NearbyCards({
   }
 
   return (
-    <div className="absolute inset-x-0 bottom-[calc(4rem+max(env(safe-area-inset-bottom),1rem)+12px)] z-20">
+    <div
+      className="absolute inset-x-0 z-20"
+      style={{ bottom: `calc(4rem + max(env(safe-area-inset-bottom), 1rem) + 12px + ${lift}px)` }}
+    >
       <div
         onScroll={onScroll}
         className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-[7.5vw] pb-1"

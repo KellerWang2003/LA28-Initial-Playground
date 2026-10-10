@@ -16,12 +16,14 @@ export type MapViewHandle = {
   fitTo: (coords: LngLat[], padding: MapPadding) => void
 }
 
-export type MapStyle = 'light' | 'streets' | 'satellite'
+export type MapStyle = 'light' | 'streets' | 'satellite' | 'mist'
 
 const styleUrls: Record<MapStyle, string> = {
   light: 'mapbox://styles/mapbox/light-v11',
   streets: 'mapbox://styles/mapbox/streets-v12',
   satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+  // Mist is the light basemap plus the fog overlay, not its own Mapbox style.
+  mist: 'mapbox://styles/mapbox/light-v11',
 }
 
 const BUILDINGS_LAYER = '3d-buildings'
@@ -496,7 +498,8 @@ export function MapView({
   }, [threeD])
 
   // Sync mapbox markers with the `markers` prop; React renders into their elements
-  const markerKey = markers.map((m) => m.id).join(',')
+  // Coords are in the key so a marker that moves (the fan's own dot) follows
+  const markerKey = markers.map((m) => `${m.id}@${m.coords.join(',')}`).join(' ')
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -510,7 +513,11 @@ export function MapView({
       }
     }
     for (const m of markers) {
-      if (current.has(m.id)) continue
+      const existing = current.get(m.id)
+      if (existing) {
+        existing.setLngLat(m.coords)
+        continue
+      }
       const el = document.createElement('div')
       el.addEventListener('click', () => callbacks.current.onMarkerClick?.(m.id))
       current.set(m.id, new mapboxgl.Marker({ element: el, anchor: 'center', offset: m.offset }).setLngLat(m.coords).addTo(map))

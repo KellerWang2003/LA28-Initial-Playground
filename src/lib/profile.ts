@@ -65,6 +65,11 @@ export function useProfile() {
   return useSyncExternalStore(subscribe, () => profile)
 }
 
+// Outside render, e.g. to sign a baton drop
+export function getProfile() {
+  return profile
+}
+
 export function setCountry(code: string) {
   if (profile.country === code) return
   update({ ...profile, country: code })

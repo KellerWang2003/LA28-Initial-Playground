@@ -12,12 +12,6 @@ export const PIN_VALUE: Record<Rarity, number> = {
   Legendary: 100,
 }
 
-// Extra Torches for collecting a pin together with others at the spot.
-// Group collection is optional, so the bonus stays small.
-export const GROUP_BONUS = 10
-// People capturing within the same minute, you included
-export const GROUP_SIZE = 3
-
 // Earned before today (earlier pins' bonuses, past challenges)
 export const STARTING_TORCHES = 180
 

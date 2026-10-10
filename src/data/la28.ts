@@ -114,12 +114,6 @@ export type PinKind = 'place' | 'shop' | 'venue' | 'event' | 'half'
 // locked: not collectable yet; open: collectable; expiring: open, closing soon
 export type PinStatus = 'locked' | 'open' | 'expiring'
 
-// What you do on the spot to collect a pin. Still being explored: tasks are
-// data so different mixes can be tried per pin without touching the UI.
-export type CollectTaskKind = 'visit' | 'photo' | 'find' | 'scan' | 'ticket' | 'stay'
-// detail overrides the default how-to line for that kind
-export type CollectTask = { kind: CollectTaskKind; detail?: string }
-
 export type Pin = {
   id: string
   name: string
@@ -134,8 +128,6 @@ export type Pin = {
   // Countdown targets: when a locked pin opens, when an expiring one ends
   opensAt?: string
   closesAt?: string
-  // Defaults by kind when missing (see collectTasks)
-  tasks?: CollectTask[]
   // Only tourist-attraction pins show on the map. Event, venue and shop pins are
   // earned there, but the map shows the event or shop itself.
   onMap: boolean
@@ -224,7 +216,7 @@ export const EVENTS: GameEvent[] = [
   { id: 'e_medalnight', type: 'official', title: 'Medal celebration concert', place: 'grandpark', date: '2028-07-25', time: '19:30', going: 9100, pin: 'p_medalnight', why: 'Free, near your hotel' },
 
   // Sponsored
-  { id: 'e_sunrise', type: 'sponsored', title: 'Sunrise run on the Strand', place: 'smpier', date: '2028-07-22', time: '06:30', going: 380, sponsor: 'Presented by a sponsor', pin: 'p_pier', why: 'Next to a pin you collected' },
+  { id: 'e_sunrise', type: 'sponsored', title: 'Sunrise run on the Strand', place: 'smpier', date: '2028-07-22', time: '06:30', going: 380, sponsor: 'Presented by a sponsor', pin: 'p_sunrise', why: 'Next to a pin you collected' },
   { id: 'e_boardwalk3x3', type: 'sponsored', title: '3x3 pickup tournament', place: 'venice', date: '2028-07-23', time: '10:00', going: 240, sponsor: 'Presented by a sponsor', why: 'You follow basketball' },
 
   // Fan-hosted
@@ -334,49 +326,48 @@ export const CREW: CrewMember[] = [
 // 8. PINS — every pin referenced above, with its state at NOW (static)
 // ─────────────────────────────────────────────
 export const PINS: Pin[] = [
-  // Tourist attractions: the only pins on the map
-  { id: 'p_griffith', name: 'Griffith Observatory Pin', place: 'griffith', kind: 'place', shape: 'telescope', rarity: 'Legendary', status: 'locked', label: 'Unlocks at 7:40 PM', short: '20 min', opensAt: '2028-07-20T19:40', onMap: true,
-    tasks: [{ kind: 'visit' }, { kind: 'photo', detail: 'Snap the city lights from the west terrace after it unlocks.' }] },
+  // Tourist attractions: the only pins on the map. Collectable any time; a time
+  // that matters (sunset, a show) is a Right moment bonus in bonuses.ts.
+  { id: 'p_griffith', name: 'Griffith Observatory Pin', place: 'griffith', kind: 'place', shape: 'telescope', rarity: 'Legendary', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_hermosa_drop', name: 'Hermosa Beach Pier Pin', place: 'hermosa', kind: 'place', shape: 'shell', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_union', name: 'Union Station Pin', place: 'union', kind: 'place', shape: 'train', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_pier', name: 'Santa Monica Pier Pin', place: 'smpier', kind: 'place', shape: 'ferris-wheel', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
-  { id: 'p_pier_half', name: 'Pier Half Pin', place: 'smpier', kind: 'half', shape: 'ferris-wheel', rarity: 'Rare', status: 'expiring', label: 'Ends in 15 min', short: '15 min left', closesAt: '2028-07-20T19:35', onMap: true,
-    tasks: [{ kind: 'visit' }, { kind: 'find', detail: 'Hint: look up at the Ferris wheel from the end of the pier.' }, { kind: 'photo' }] },
+  { id: 'p_pier_half', name: 'Pier Half Pin', place: 'smpier', kind: 'half', shape: 'ferris-wheel', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_venice_half', name: 'Venice Half Pin', place: 'venice', kind: 'half', shape: 'palm', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
-  { id: 'p_ltokyo', name: 'Little Tokyo Pin', place: 'jvp', kind: 'place', shape: 'landmark', rarity: 'Common', status: 'open', label: 'Open until 9:00 PM', short: 'Open', onMap: true },
+  { id: 'p_ltokyo', name: 'Little Tokyo Pin', place: 'jvp', kind: 'place', shape: 'landmark', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_leimert', name: 'Leimert Park Pin', place: 'leimert', kind: 'place', shape: 'music', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
 
   // More attractions across LA
   { id: 'p_hwof', name: 'Walk of Fame Pin', place: 'hwof', kind: 'place', shape: 'star', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
-  { id: 'p_hbowl', name: 'Hollywood Bowl Pin', place: 'hbowl', kind: 'place', shape: 'music', rarity: 'Epic', status: 'locked', label: 'Unlocks when the show starts at 8:00 PM', short: '8:00 PM', opensAt: '2028-07-20T20:00', onMap: true },
-  { id: 'p_lakehollywood', name: 'Hollywood Sign Pin', place: 'lakehollywood', kind: 'place', shape: 'mountain', rarity: 'Rare', status: 'expiring', label: 'Ends at sunset, 8:05 PM', short: 'Sunset', closesAt: '2028-07-20T20:05', onMap: true },
-  { id: 'p_runyon', name: 'Runyon Canyon Pin', place: 'runyon', kind: 'place', shape: 'running', rarity: 'Common', status: 'expiring', label: 'Ends at sunset, 8:05 PM', short: 'Sunset', closesAt: '2028-07-20T20:05', onMap: true },
-  { id: 'p_getty', name: 'Getty Center Pin', place: 'getty', kind: 'place', shape: 'art', rarity: 'Epic', status: 'locked', label: 'Unlocks tomorrow at 10:00 AM', short: 'Tomorrow', opensAt: '2028-07-21T10:00', onMap: true },
-  { id: 'p_gettyvilla', name: 'Getty Villa Pin', place: 'gettyvilla', kind: 'place', shape: 'amphora', rarity: 'Rare', status: 'locked', label: 'Unlocks tomorrow at 10:00 AM', short: 'Tomorrow', opensAt: '2028-07-21T10:00', onMap: true },
-  { id: 'p_lacma', name: 'Urban Light Pin', place: 'lacma', kind: 'place', shape: 'streetlight', rarity: 'Common', status: 'open', label: 'Open all night', short: 'Open', onMap: true },
-  { id: 'p_tarpits', name: 'Tar Pits Pin', place: 'tarpits', kind: 'place', shape: 'bone', rarity: 'Common', status: 'locked', label: 'Unlocks tomorrow at 9:30 AM', short: 'Tomorrow', opensAt: '2028-07-21T09:30', onMap: true },
-  { id: 'p_farmersmarket', name: 'Farmers Market Pin', place: 'farmersmarket', kind: 'place', shape: 'market', rarity: 'Common', status: 'open', label: 'Open until 9:00 PM', short: 'Open', onMap: true },
+  { id: 'p_hbowl', name: 'Hollywood Bowl Pin', place: 'hbowl', kind: 'place', shape: 'music', rarity: 'Epic', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_lakehollywood', name: 'Hollywood Sign Pin', place: 'lakehollywood', kind: 'place', shape: 'mountain', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_runyon', name: 'Runyon Canyon Pin', place: 'runyon', kind: 'place', shape: 'running', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_getty', name: 'Getty Center Pin', place: 'getty', kind: 'place', shape: 'art', rarity: 'Epic', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_gettyvilla', name: 'Getty Villa Pin', place: 'gettyvilla', kind: 'place', shape: 'amphora', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_lacma', name: 'Urban Light Pin', place: 'lacma', kind: 'place', shape: 'streetlight', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_tarpits', name: 'Tar Pits Pin', place: 'tarpits', kind: 'place', shape: 'bone', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_farmersmarket', name: 'Farmers Market Pin', place: 'farmersmarket', kind: 'place', shape: 'market', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_beverly', name: 'Beverly Hills Pin', place: 'beverly', kind: 'place', shape: 'palm', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
-  { id: 'p_concerthall', name: 'Concert Hall Pin', place: 'concerthall', kind: 'place', shape: 'music', rarity: 'Rare', status: 'expiring', label: 'Ends at 8:00 PM', short: 'Until 8:00', closesAt: '2028-07-20T20:00', onMap: true },
-  { id: 'p_angelsflight', name: 'Angels Flight Pin', place: 'angelsflight', kind: 'place', shape: 'funicular', rarity: 'Common', status: 'open', label: 'Open until 10:00 PM', short: 'Open', onMap: true },
+  { id: 'p_concerthall', name: 'Concert Hall Pin', place: 'concerthall', kind: 'place', shape: 'music', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_angelsflight', name: 'Angels Flight Pin', place: 'angelsflight', kind: 'place', shape: 'funicular', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_chinatown', name: 'Chinatown Pin', place: 'chinatown', kind: 'place', shape: 'landmark', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_artsdistrict', name: 'Arts District Pin', place: 'artsdistrict', kind: 'place', shape: 'brush', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
-  { id: 'p_watts', name: 'Watts Towers Pin', place: 'watts', kind: 'place', shape: 'spires', rarity: 'Rare', status: 'locked', label: 'Unlocks tomorrow at 10:30 AM', short: 'Tomorrow', opensAt: '2028-07-21T10:30', onMap: true },
-  { id: 'p_endeavour', name: 'Endeavour Pin', place: 'endeavour', kind: 'place', shape: 'rocket', rarity: 'Rare', status: 'locked', label: 'Unlocks tomorrow at 10:00 AM', short: 'Tomorrow', opensAt: '2028-07-21T10:00', onMap: true },
-  { id: 'p_baldwin', name: 'Baldwin Hills Pin', place: 'baldwin', kind: 'place', shape: 'mountain', rarity: 'Common', status: 'expiring', label: 'Ends at sunset, 8:05 PM', short: 'Sunset', closesAt: '2028-07-20T20:05', onMap: true },
+  { id: 'p_watts', name: 'Watts Towers Pin', place: 'watts', kind: 'place', shape: 'spires', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_endeavour', name: 'Endeavour Pin', place: 'endeavour', kind: 'place', shape: 'rocket', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_baldwin', name: 'Baldwin Hills Pin', place: 'baldwin', kind: 'place', shape: 'mountain', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_marina', name: 'Marina del Rey Pin', place: 'marina', kind: 'place', shape: 'anchor', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_venicecanals', name: 'Venice Canals Pin', place: 'venicecanals', kind: 'place', shape: 'bridge', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
-  { id: 'p_malibu', name: 'Malibu Pier Pin', place: 'malibu', kind: 'place', shape: 'waves', rarity: 'Rare', status: 'expiring', label: 'Ends at sunset, 8:05 PM', short: 'Sunset', closesAt: '2028-07-20T20:05', onMap: true },
+  { id: 'p_malibu', name: 'Malibu Pier Pin', place: 'malibu', kind: 'place', shape: 'waves', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_manhattan', name: 'Manhattan Beach Pin', place: 'manhattan', kind: 'place', shape: 'sunset', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
-  { id: 'p_koreanbell', name: 'Korean Bell Pin', place: 'koreanbell', kind: 'place', shape: 'bell', rarity: 'Rare', status: 'locked', label: 'Unlocks tomorrow at 10:00 AM', short: 'Tomorrow', opensAt: '2028-07-21T10:00', onMap: true },
-  { id: 'p_queenmary', name: 'Queen Mary Pin', place: 'queenmary', kind: 'place', shape: 'ship', rarity: 'Rare', status: 'open', label: 'Open until 9:00 PM', short: 'Open', onMap: true },
-  { id: 'p_aquarium', name: 'Aquarium Pin', place: 'aquarium', kind: 'place', shape: 'fish', rarity: 'Common', status: 'locked', label: 'Unlocks tomorrow at 9:00 AM', short: 'Tomorrow', opensAt: '2028-07-21T09:00', onMap: true },
-  { id: 'p_huntington', name: 'Huntington Gardens Pin', place: 'huntington', kind: 'place', shape: 'flower', rarity: 'Rare', status: 'locked', label: 'Unlocks tomorrow at 10:00 AM', short: 'Tomorrow', opensAt: '2028-07-21T10:00', onMap: true },
+  { id: 'p_koreanbell', name: 'Korean Bell Pin', place: 'koreanbell', kind: 'place', shape: 'bell', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_queenmary', name: 'Queen Mary Pin', place: 'queenmary', kind: 'place', shape: 'ship', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_aquarium', name: 'Aquarium Pin', place: 'aquarium', kind: 'place', shape: 'fish', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_huntington', name: 'Huntington Gardens Pin', place: 'huntington', kind: 'place', shape: 'flower', rarity: 'Rare', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_oldpasadena', name: 'Old Pasadena Pin', place: 'oldpasadena', kind: 'place', shape: 'building', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
-  { id: 'p_mission', name: 'Mission San Gabriel Pin', place: 'mission', kind: 'place', shape: 'church', rarity: 'Common', status: 'locked', label: 'Unlocks tomorrow at 9:00 AM', short: 'Tomorrow', opensAt: '2028-07-21T09:00', onMap: true },
-  { id: 'p_angelspoint', name: 'Angels Point Pin', place: 'angelspoint', kind: 'place', shape: 'trees', rarity: 'Common', status: 'open', label: 'Open until 10:00 PM', short: 'Open', onMap: true },
+  { id: 'p_mission', name: 'Mission San Gabriel Pin', place: 'mission', kind: 'place', shape: 'church', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
+  { id: 'p_angelspoint', name: 'Angels Point Pin', place: 'angelspoint', kind: 'place', shape: 'trees', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_silverlake', name: 'Silver Lake Pin', place: 'silverlake', kind: 'place', shape: 'waves', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
-  { id: 'p_mariachi', name: 'Mariachi Plaza Pin', place: 'mariachi', kind: 'place', shape: 'guitar', rarity: 'Common', status: 'locked', label: 'Unlocks when the mariachis gather at 8:00 PM', short: '8:00 PM', opensAt: '2028-07-20T20:00', onMap: true },
+  { id: 'p_mariachi', name: 'Mariachi Plaza Pin', place: 'mariachi', kind: 'place', shape: 'guitar', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
   { id: 'p_echolake', name: 'Echo Park Lake Pin', place: 'echolake', kind: 'place', shape: 'boat', rarity: 'Common', status: 'open', label: 'Open all day', short: 'Open', onMap: true },
 
   // Shops: earned at the shop, not shown on the map
@@ -390,6 +381,7 @@ export const PINS: Pin[] = [
   { id: 'p_fanzone', name: 'Fan Zone Night Pin', place: 'coliseum', kind: 'event', shape: 'party', rarity: 'Rare', status: 'locked', label: 'Unlocks when it starts at 8:00 PM', short: '8:00 PM', opensAt: '2028-07-20T20:00', onMap: false },
   { id: 'p_medalnight', name: 'Medal Concert Pin', place: 'grandpark', kind: 'event', shape: 'concert', rarity: 'Epic', status: 'locked', label: 'Unlocks Tue at 7:30 PM', short: 'Tue', opensAt: '2028-07-25T19:30', onMap: false },
   { id: 'p_langpicnic', name: 'Language Swap Pin', place: 'echolake', kind: 'event', shape: 'languages', rarity: 'Common', status: 'locked', label: 'Unlocks Mon at 11:00 AM', short: 'Mon', opensAt: '2028-07-24T11:00', onMap: false },
+  { id: 'p_sunrise', name: 'Sunrise Run Pin', place: 'smpier', kind: 'event', shape: 'running', rarity: 'Rare', status: 'locked', label: 'Unlocks Sat at 6:30 AM', short: 'Sat', opensAt: '2028-07-22T06:30', onMap: false },
   { id: 'p_afterparty', name: 'Swim Final After-Hangout Pin', place: 'sofi', kind: 'event', shape: 'party', rarity: 'Common', status: 'locked', label: 'Unlocks at 9:30 PM', short: '9:30 PM', opensAt: '2028-07-20T21:30', onMap: false },
 
   // Venues: earned at the game, not shown on the map
@@ -515,35 +507,9 @@ export const activityAt = (placeId: string) => LIVE_ACTIVITY.find((a) => a.place
 export const pinCountdownTarget = (pin: Pin) =>
   pin.status === 'locked' ? pin.opensAt : pin.status === 'expiring' ? pin.closesAt : undefined
 
-// Tasks for a pin: its own, or the default mix for its kind
-const defaultTasks: Record<PinKind, CollectTask[]> = {
-  place: [{ kind: 'visit' }, { kind: 'photo' }],
-  half: [{ kind: 'visit' }, { kind: 'find' }, { kind: 'photo' }],
-  shop: [{ kind: 'visit' }, { kind: 'scan' }],
-  venue: [{ kind: 'visit' }, { kind: 'ticket' }],
-  event: [{ kind: 'visit' }, { kind: 'stay' }],
-}
-export const collectTasks = (pin: Pin) => pin.tasks ?? defaultTasks[pin.kind]
-
-// Short label for chips, title for the step list
-export const collectTaskLabel: Record<CollectTaskKind, { short: string; title: string }> = {
-  visit: { short: 'Visit', title: 'Visit' },
-  photo: { short: 'Photo', title: 'Take a photo' },
-  find: { short: 'Find', title: 'Find the spot' },
-  scan: { short: 'Scan', title: 'Scan a code' },
-  ticket: { short: 'Ticket', title: 'Scan your ticket' },
-  stay: { short: 'Stay', title: 'Stay a while' },
-}
-
-// Default how-to line per task kind; {place} is replaced with the place name
-export const collectTaskDetail: Record<CollectTaskKind, string> = {
-  visit: 'Go to {place}. You need to be within about 100 m.',
-  photo: 'Snap the spot to stamp the pin into your Passport.',
-  find: 'The pin is hidden at one exact spot. Follow the hint to find it.',
-  scan: 'Ask at the counter for the pin code and scan it.',
-  ticket: 'Scan your ticket at the gate for this session.',
-  stay: 'Stay for 15 minutes once it starts.',
-}
+// Collecting any pin is the same: be there and take any photo. Bonus challenges
+// on top of that live in bonuses.ts.
+export const COLLECT_RADIUS_M = 100
 
 export const eventTypeLabel: Record<EventType, string> = {
   game: 'Game',

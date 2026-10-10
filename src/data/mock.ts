@@ -45,16 +45,22 @@ export type Athlete = {
   flag: string
   sport: string
   line: string
+  // The session in la28.ts this line is about
+  session?: string
 }
 
 export const athletes: Athlete[] = [
-  { id: 'hale', name: 'Noah Hale', code: 'USA', flag: '🇺🇸', sport: 'Swimming', line: "In the men's 200m freestyle final, next in tonight's session at SoFi Stadium." },
-  { id: 'byrne', name: 'Isla Byrne', code: 'AUS', flag: '🇦🇺', sport: 'Swimming', line: "Won the women's 100m backstroke final earlier in the SoFi finals session." },
-  { id: 'sato', name: 'Haruto Sato', code: 'JPN', flag: '🇯🇵', sport: 'Gymnastics', line: "Leading the men's all-around final at Crypto.com Arena, rotation 4 of 6." },
-  { id: 'kipkoech', name: 'Jonah Kipkoech', code: 'KEN', flag: '🇰🇪', sport: 'Athletics', line: "Racing the men's 10,000m final at the LA Memorial Coliseum at 8:00 PM." },
-  { id: 'campbell', name: 'Andre Campbell', code: 'JAM', flag: '🇯🇲', sport: 'Athletics', line: "Running in the men's 100m heats tonight at the Coliseum." },
-  { id: 'moreau', name: 'Alex Moreau', code: 'AUS', flag: '🇦🇺', sport: 'Basketball', line: 'On the floor for Australia against Serbia at Intuit Dome, second quarter.' },
-  { id: 'ferreira', name: 'Lucas Ferreira', code: 'BRA', flag: '🇧🇷', sport: 'Football', line: "Starts for Brazil against Morocco at the Rose Bowl at 8:30 PM." },
+  { id: 'hale', name: 'Noah Hale', code: 'USA', flag: '🇺🇸', sport: 'Swimming', session: 's_swim_0720', line: "In the men's 200m freestyle final, next in tonight's session at SoFi Stadium." },
+  { id: 'byrne', name: 'Isla Byrne', code: 'AUS', flag: '🇦🇺', sport: 'Swimming', session: 's_swim_0720', line: "Won the women's 100m backstroke final earlier in the SoFi finals session." },
+  { id: 'park', name: 'Liam Park', code: 'KOR', flag: '🇰🇷', sport: 'Swimming', session: 's_swim_0720', line: "In lane 6 for the men's 200m freestyle final tonight at SoFi Stadium." },
+  { id: 'sato', name: 'Haruto Sato', code: 'JPN', flag: '🇯🇵', sport: 'Gymnastics', session: 's_gym_0720', line: "Leading the men's all-around final at Crypto.com Arena, rotation 4 of 6." },
+  { id: 'kipkoech', name: 'Jonah Kipkoech', code: 'KEN', flag: '🇰🇪', sport: 'Athletics', session: 's_athl_0720', line: "Racing the men's 10,000m final at the LA Memorial Coliseum at 8:00 PM." },
+  { id: 'campbell', name: 'Andre Campbell', code: 'JAM', flag: '🇯🇲', sport: 'Athletics', session: 's_athl_0720', line: "Running in the men's 100m heats tonight at the Coliseum." },
+  { id: 'moreau', name: 'Alex Moreau', code: 'AUS', flag: '🇦🇺', sport: 'Basketball', session: 's_bball_0720', line: 'On the floor for Australia against Serbia at Intuit Dome, second quarter.' },
+  { id: 'okafor', name: 'Ada Okafor', code: 'NGR', flag: '🇳🇬', sport: 'Basketball', session: 's_bball_0723', line: "Leads Nigeria into the women's quarterfinal against Spain on July 23." },
+  { id: 'ferreira', name: 'Lucas Ferreira', code: 'BRA', flag: '🇧🇷', sport: 'Football', session: 's_fb_m_0720', line: "Starts for Brazil against Morocco at the Rose Bowl at 8:30 PM." },
+  { id: 'mori', name: 'Kenji Mori', code: 'JPN', flag: '🇯🇵', sport: 'Football', session: 's_fb_0722', line: "Captains Japan against Brazil in the men's semifinal on July 22." },
+  { id: 'souza', name: 'Ana Souza', code: 'BRA', flag: '🇧🇷', sport: 'Beach volleyball', session: 's_bvb_am', line: "Won this morning's women's pool play match against the USA, 2–1." },
 ]
 
 // ---- People ----

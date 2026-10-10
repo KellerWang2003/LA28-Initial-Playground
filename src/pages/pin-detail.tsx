@@ -6,9 +6,14 @@ import { Badge } from '@/components/ui/badge'
 import { CollectPanel } from '@/components/collect-panel'
 import { ImagePlaceholder } from '@/components/image-placeholder'
 import { MapView, UserDot } from '@/components/map-view'
+import { PinPhotos } from '@/components/pin-photos'
 import { PinShape, PinStatusChip } from '@/components/pin-art'
 import { useCollected, useCustomIds } from '@/lib/collected'
+import { usePinPhotos } from '@/lib/pin-photos'
 import { CustomPin } from '@/components/place-photo'
+import { MarkRow } from '@/components/bonus-list'
+import { useBonusMarks } from '@/lib/bonuses'
+import { bonusesFor } from '@/data/bonuses'
 import { cn } from '@/lib/utils'
 import { activityAt, flag, pinById, pinKindLabel, placeById, reviewsFor, type Review } from '@/data/la28'
 import { FAKE_USER_LOCATION, formatKm, formatMinutes, travelFromYou, type LngLat } from '@/data/map-layers'
@@ -26,6 +31,8 @@ export default function PinDetailPage() {
   const collected = useCollected()
   const custom = useCustomIds().includes(pinId)
   const [photo, setPhoto] = useState(0)
+  const yourPhotos = usePinPhotos(pinId)
+  const marks = useBonusMarks()
   const pin = pinById(pinId)
 
   if (!pin) return <Navigate to="/explore" replace />
@@ -83,9 +90,18 @@ export default function PinDetailPage() {
             <Badge variant="outline">{pin.rarity}</Badge>
             <Badge variant="outline">{pinKindLabel[pin.kind]}</Badge>
           </div>
+          {/* Marks from bonus challenges done here */}
+          {done && <MarkRow marks={bonusesFor(pin.id).filter((b) => marks[b.id]).map((b) => marks[b.id])} className="mt-3" />}
         </div>
 
         <div className="space-y-7 px-4 pt-7">
+          {/* Once it's yours: the photos from your visit, and room to add more */}
+          {done && (
+            <Section title="Your photos" aside={<span className="text-sm text-muted-foreground tabular-nums">{yourPhotos.length}</span>}>
+              <PinPhotos pinId={pin.id} />
+            </Section>
+          )}
+
           <Section title="About the place">
             {place.about && <p className="text-sm text-muted-foreground">{place.about}</p>}
             <ul className="mt-3 space-y-1.5 text-sm">
