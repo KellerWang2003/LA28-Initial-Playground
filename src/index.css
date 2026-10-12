@@ -51,7 +51,8 @@
 :root {
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0.008 326);
-    --card: oklch(1 0 0);
+    /* Tinted surface: content blocks (cards, tables, grouped lists) sit a step off the white page */
+    --card: oklch(0.97 0 0);
     --card-foreground: oklch(0.145 0.008 326);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0.008 326);
@@ -186,6 +187,23 @@
     0% { transform: scale(1.6) rotate(-8deg); opacity: 0; }
     100% { transform: scale(1) rotate(-4deg); opacity: 1; }
   }
+}
+
+/* Passport: a page (or the cover) on the spine, lifted from --lift-from to --lift-to
+   (0 flat, 1 just past edge-on). Kept to the visible half of a turn, since past edge-on it
+   would be off-screen. The same values drive the page's shading and the shadow it casts on the
+   page underneath. Timing is set in book.tsx. */
+@keyframes leaf-turn {
+  from { transform: rotateY(calc(var(--lift-from) * -95deg)); }
+  to { transform: rotateY(calc(var(--lift-to) * -95deg)); }
+}
+@keyframes leaf-shade {
+  from { opacity: var(--lift-from); }
+  to { opacity: var(--lift-to); }
+}
+@keyframes under-shade {
+  from { opacity: calc(1 - var(--lift-from)); }
+  to { opacity: calc(1 - var(--lift-to)); }
 }
 
 @utility no-scrollbar {

@@ -64,7 +64,8 @@ type Props = {
   renderMarker: (id: string) => ReactNode
   selectedId?: string | null
   onMarkerClick?: (id: string) => void
-  onBackgroundClick?: () => void
+  // Where on the map was tapped
+  onBackgroundClick?: (coords: LngLat) => void
   onZoomChange?: (zoom: number) => void
   initialBounds: LngLat[]
   initialPadding: MapPadding
@@ -385,7 +386,9 @@ export function MapView({
 
   const mistCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const revealedRef = useRef(revealed)
-  revealedRef.current = revealed
+  useEffect(() => {
+    revealedRef.current = revealed
+  })
 
   useImperativeHandle(ref, () => ({
     flyTo: (center, padding) => {
@@ -420,7 +423,7 @@ export function MapView({
     map.on('click', (e) => {
       // Marker clicks bubble through the canvas container; ignore those
       if ((e.originalEvent.target as HTMLElement).closest('.mapboxgl-marker')) return
-      callbacks.current.onBackgroundClick?.()
+      callbacks.current.onBackgroundClick?.([e.lngLat.lng, e.lngLat.lat])
     })
     map.on('zoom', () => callbacks.current.onZoomChange?.(map.getZoom()))
     map.on('moveend', () => declutterLabels(markerRefs.current.values()))

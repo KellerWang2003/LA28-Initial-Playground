@@ -4,6 +4,7 @@ import { CHALLENGES, PIN_VALUE, STARTING_TORCHES, STORE_ITEMS, challengeDone } f
 import { pinById } from '@/data/la28'
 import { useBonusMarks } from '@/lib/bonuses'
 import { BONUS_REWARD, SEED_BONUSES, bonusById, bonusType } from '@/data/bonuses'
+import { useCrowdPlayTorches } from '@/features/crowdplay/play'
 
 // In-memory wallet: redeemed store items. Resets on reload.
 // Challenge rewards are derived from progress, so finishing one pays it once.
@@ -26,12 +27,14 @@ export function redeemItem(id: string) {
   if (!state.redeemed.includes(id)) update({ ...state, redeemed: [...state.redeemed, id] })
 }
 
-// Balance = starting Torches + pins collected + challenges completed since + bonuses done since − items redeemed.
+// Balance = starting Torches + pins collected + challenges completed since + bonuses done since
+// + CrowdPlay answers − items redeemed.
 // Seed challenges flagged claimed and seed bonuses are skipped; those Torches are already in STARTING_TORCHES.
 export function useWallet() {
   const collected = useCollected()
   const marks = useBonusMarks()
   const { redeemed } = useSyncExternalStore(subscribe, () => state)
+  const fromCrowdPlay = useCrowdPlayTorches()
   const fromPins = collected.reduce((sum, id) => sum + PIN_VALUE[pinById(id)?.rarity ?? 'Common'], 0)
   const fromChallenges = CHALLENGES.filter((c) => !c.claimed && challengeDone(c, collected, SEED_COLLECTED) >= c.goal).reduce(
     (sum, c) => sum + c.reward,
@@ -41,5 +44,5 @@ export function useWallet() {
     .filter((id) => !(id in SEED_BONUSES))
     .reduce((sum, id) => sum + BONUS_REWARD[bonusType(bonusById(id)!)], 0)
   const spent = STORE_ITEMS.filter((i) => redeemed.includes(i.id)).reduce((sum, i) => sum + i.price, 0)
-  return { balance: STARTING_TORCHES + fromPins + fromChallenges + fromBonuses - spent, redeemed }
+  return { balance: STARTING_TORCHES + fromPins + fromChallenges + fromBonuses + fromCrowdPlay - spent, redeemed }
 }

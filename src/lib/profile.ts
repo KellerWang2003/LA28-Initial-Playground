@@ -70,6 +70,16 @@ export function getProfile() {
   return profile
 }
 
+export function setName(name: string) {
+  if (profile.name === name) return
+  update({ ...profile, name })
+}
+
+export function setBio(bio: string) {
+  if (profile.bio === bio) return
+  update({ ...profile, bio })
+}
+
 export function setCountry(code: string) {
   if (profile.country === code) return
   update({ ...profile, country: code })

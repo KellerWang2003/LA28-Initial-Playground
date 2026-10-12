@@ -58,6 +58,15 @@ export function resetMyGames() {
 
 export const gameFor = (list: MyGame[], session: string) => list.find((g) => g.session === session)
 
+// The activity room opens this long before the start
+export const ROOM_OPENS_BEFORE_S = 30 * 60
+
+// The room is open while the game is live, and from ROOM_OPENS_BEFORE_S before the start
+export function isRoomOpen(session: Session, now: number) {
+  if (session.status === 'finished') return false
+  return session.status === 'live' || now >= Date.parse(`${session.date}T${session.start}`) - ROOM_OPENS_BEFORE_S * 1000
+}
+
 // Live first, then upcoming by time, then finished (newest first)
 const statusRank = { live: 0, upcoming: 1, finished: 2 } as const
 const startKey = (s: Session) => `${s.date}${s.start}`

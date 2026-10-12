@@ -6,7 +6,7 @@ import { PinStatusText } from '@/components/pin-art'
 import { BonusList } from '@/components/bonus-list'
 import { useBonusMarks } from '@/lib/bonuses'
 import { usePinLocked } from '@/lib/clock'
-import { useDebug } from '@/lib/debug'
+import { useAtPlace } from '@/lib/location'
 import { cn } from '@/lib/utils'
 import { COLLECT_RADIUS_M, type Pin } from '@/data/la28'
 import { bonusesFor } from '@/data/bonuses'
@@ -29,7 +29,7 @@ export function CollectPanel({
 }) {
   const [open, setOpen] = useState(false)
   const locked = usePinLocked(pin)
-  const { inRadius } = useDebug()
+  const here = useAtPlace(pin.place)
   const marks = useBonusMarks()
   const bonuses = bonusesFor(pin.id)
   const doneCount = bonuses.filter((b) => marks[b.id]).length
@@ -50,7 +50,7 @@ export function CollectPanel({
         Bonus
       </Button>
     ) : (
-      <Button size="lg" disabled={collected || locked || !inRadius} onClick={onCollect} className={cn('shrink-0 tabular-nums', className)}>
+      <Button size="lg" disabled={collected || locked || !here} onClick={onCollect} className={cn('shrink-0 tabular-nums', className)}>
         {collected ? (
           <>
             <Check data-icon="inline-start" />
@@ -61,7 +61,7 @@ export function CollectPanel({
             <Lock data-icon="inline-start" />
             <PinStatusText pin={pin} />
           </>
-        ) : !inRadius ? (
+        ) : !here ? (
           'Not here yet'
         ) : (
           'I’m here'

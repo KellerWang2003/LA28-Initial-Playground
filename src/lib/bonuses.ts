@@ -5,9 +5,16 @@ import { resetCollected, useCollected } from '@/lib/collected'
 import { resetDebug, useDebug } from '@/lib/debug'
 import { resetBatons } from '@/lib/batons'
 import { exitFlowRun } from '@/lib/flow-run'
-import { resetLocation } from '@/lib/location'
+import { resetLocation, useAtPlace } from '@/lib/location'
 import { resetMyGames } from '@/lib/my-games'
+import { resetRoomState } from '@/features/game-room/crowd'
+import { resetEngine } from '@/features/game-room/game/engine'
+import { resetStreamDelay } from '@/features/game-room/standing/delay'
 import { clearToasts } from '@/lib/toasts'
+import { resetPlans } from '@/lib/plans'
+import { resetSaved } from '@/lib/saved'
+import { resetTickets } from '@/lib/tickets'
+import { resetKeepGoing } from '@/features/activity/keep-going-state'
 import { formatTime, pinById, type Pin } from '@/data/la28'
 import { SEED_BONUSES, venueSession, type Bonus, type BonusKind, type GameState } from '@/data/bonuses'
 
@@ -64,8 +71,15 @@ export function resetDemo() {
   resetBatons()
   resetLocation()
   resetMyGames()
+  resetRoomState()
+  resetEngine()
+  resetStreamDelay()
   clearToasts()
   exitFlowRun()
+  resetPlans()
+  resetSaved()
+  resetTickets()
+  resetKeepGoing()
 }
 
 // ---- Can it be played right now? ----
@@ -104,9 +118,9 @@ export function useVenueGame(pin: Pin): GameState | null {
 export function useBonusState(bonus: Bonus): BonusState {
   const now = useClock()
   const collected = useCollected()
-  const { inRadius } = useDebug()
   const all = useBonusMarks()
   const pin = pinById(bonus.pin)!
+  const here = useAtPlace(pin.place)
   const game = useVenueGame(pin)
 
   if (all[bonus.id]) return { status: 'done', mark: all[bonus.id] }
@@ -116,7 +130,7 @@ export function useBonusState(bonus: Bonus): BonusState {
   }
   if (game && game !== 'live') return { status: 'game', game }
   if (!collected.includes(pin.id)) return { status: bonus.window ? 'with-collect' : 'collect' }
-  if (!inRadius) return { status: 'away' }
+  if (!here) return { status: 'away' }
   return { status: 'ready' }
 }
 

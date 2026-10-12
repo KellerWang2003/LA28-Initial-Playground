@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { X } from 'lucide-react'
+import { ImagePlus, X } from 'lucide-react'
 import { BatonArt } from '@/components/baton-art'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -36,6 +36,9 @@ export function DropSheet() {
 
 function Sheet({ theme, spot }: { theme: string; spot: string }) {
   const [note, setNote] = useState('')
+  // One photo with the note, kept as an object URL for the session
+  const [photo, setPhoto] = useState<string | null>(null)
+  const photoInput = useRef<HTMLInputElement>(null)
   const [anonymous, setAnonymous] = useState(false)
   const [shown, setShown] = useState(false)
   const profile = useProfile()
@@ -56,7 +59,7 @@ function Sheet({ theme, spot }: { theme: string; spot: string }) {
       <div aria-hidden onClick={cancelDrop} className={cn('absolute inset-0 bg-black/30 transition-opacity duration-300', shown ? 'opacity-100' : 'opacity-0')} />
       <div
         className={cn(
-          'absolute inset-x-0 bottom-0 rounded-t-3xl border-t bg-background px-4 pt-4 pb-[max(env(safe-area-inset-bottom),16px)] shadow-xl transition-transform duration-300 ease-out',
+          'no-scrollbar absolute inset-x-0 bottom-0 max-h-[92dvh] overflow-y-auto overscroll-contain rounded-t-3xl border-t bg-background px-4 pt-4 pb-[max(env(safe-area-inset-bottom),16px)] shadow-xl transition-transform duration-300 ease-out',
           shown ? 'translate-y-0' : 'translate-y-full',
         )}
       >
@@ -83,12 +86,46 @@ function Sheet({ theme, spot }: { theme: string; spot: string }) {
             placeholder="Where it’s been, a tip, a hello…"
             className="min-h-24"
           />
-          <span className="mt-1 block text-right text-[11px] text-muted-foreground tabular-nums">
+        </label>
+        <div className="mt-2 flex items-start gap-2">
+          {photo ? (
+            <span className="relative block size-20 shrink-0">
+              <img src={photo} alt="Your photo for the note" className="size-full rounded-2xl object-cover" />
+              <button
+                type="button"
+                aria-label="Remove photo"
+                onClick={() => {
+                  URL.revokeObjectURL(photo)
+                  setPhoto(null)
+                }}
+                className="absolute -top-1.5 -right-1.5 flex size-6 items-center justify-center rounded-full border bg-background shadow-sm"
+              >
+                <X className="size-3.5" />
+              </button>
+            </span>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => photoInput.current?.click()}>
+              <ImagePlus data-icon="inline-start" />
+              Add a photo
+            </Button>
+          )}
+          <input
+            ref={photoInput}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file?.type.startsWith('image/')) setPhoto(URL.createObjectURL(file))
+              e.target.value = ''
+            }}
+          />
+          <span className="ml-auto text-[11px] text-muted-foreground tabular-nums">
             {note.length}/{NOTE_MAX}
           </span>
-        </label>
+        </div>
 
-        <div className="mt-1">
+        <div className="mt-4">
           <p className="mb-1.5 text-sm font-semibold">Show me as</p>
           <div role="radiogroup" aria-label="Show me as" className="grid grid-cols-2 gap-2">
             {signatures.map((sig) => (
@@ -114,7 +151,7 @@ function Sheet({ theme, spot }: { theme: string; spot: string }) {
           </div>
         </div>
 
-        <Button size="lg" className="mt-4 w-full" onClick={() => dropBaton(note.trim() || null, anonymous)}>
+        <Button size="lg" className="mt-4 w-full" onClick={() => dropBaton(note.trim() || null, anonymous, photo ?? undefined)}>
           Drop baton
         </Button>
       </div>

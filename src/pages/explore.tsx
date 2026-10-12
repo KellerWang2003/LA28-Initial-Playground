@@ -26,12 +26,12 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { useCollected } from '@/lib/collected'
 import { placeCoords, useFanAt, useFanLocation } from '@/lib/location'
-import { dropSpotFor, getBatons, openBatonCard, startDrop, useBatons, useCarried, useOpenCard } from '@/lib/batons'
+import { dropSpotFor, getBatons, openBatonCard, startDrop, useBatons, useCarried, useOpenCard, visibleTo } from '@/lib/batons'
 import { cn } from '@/lib/utils'
 import { pinById, pinCountdownTarget, pinKindLabel, placeById, type Pin } from '@/data/la28'
 import { BATON_SPOTS } from '@/data/batons'
 import { bonusesFor } from '@/data/bonuses'
-import { FAKE_USER_LOCATION, allItems, distance, formatMinutes, layers, mapLayers, travelFromYou, type Layer, type LngLat, type MapItem } from '@/data/map-layers'
+import { allItems, distance, formatMinutes, layers, mapLayers, travelFromYou, type Layer, type LngLat, type MapItem } from '@/data/map-layers'
 
 const mapStyles: { id: MapStyle; label: string }[] = [
   { id: 'light', label: 'Default' },
@@ -78,8 +78,8 @@ const MIX_CAP = 14
 
 // Lower is more relevant. Distance leads; live and expiring only nudge things
 // that are already nearby, so a pin across the city doesn't jump the row.
-function relevance(item: MapItem) {
-  const km = distance(item.coords, FAKE_USER_LOCATION) * 111
+function relevance(item: MapItem, here: LngLat) {
+  const km = distance(item.coords, here) * 111
   let penalty = km
   if (km <= 8) {
     if (item.liveSince) penalty -= 2
@@ -88,25 +88,24 @@ function relevance(item: MapItem) {
   return penalty
 }
 
-const rank = (items: MapItem[]) => [...items].sort((a, b) => relevance(a) - relevance(b))
+const rank = (items: MapItem[], here: LngLat) => [...items].sort((a, b) => relevance(a, here) - relevance(b, here))
 
 // Frame the items nearest you rather than all of LA; the rest are a pan away
 const NEAREST = 15
-const nearestCoords = (items: MapItem[]) => [
+const nearestCoords = (items: MapItem[], here: LngLat) => [
   ...[...items]
-    .sort((a, b) => distance(a.coords, FAKE_USER_LOCATION) - distance(b.coords, FAKE_USER_LOCATION))
+    .sort((a, b) => distance(a.coords, here) - distance(b.coords, here))
     .slice(0, NEAREST)
     .map((i) => i.coords),
-  FAKE_USER_LOCATION,
+  here,
 ]
-const initialBounds = nearestCoords(mapLayers.pins)
 
 export default function ExplorePage() {
   const mapRef = useRef<MapViewHandle>(null)
   const collected = useCollected()
   const [snap, setSnap] = useState<Snap>('min')
   // A filter pill, or none: no selection shows the most relevant of everything
-  const [layer, setLayer] = useState<Layer | null>('pins')
+  const [layer, setLayer] = useState<Layer | null>(null)
   const [query, setQuery] = useState('')
   // anchorId fixes the order of the "nearby" cards; selectedId follows swipes
   const [anchorId, setAnchorId] = useState<string | null>(null)
@@ -120,14 +119,17 @@ export default function ExplorePage() {
   const batons = useBatons()
   const carried = useCarried()
   const openCard = useOpenCard()
-  // Batons show under every filter. A carried one is on nobody's map; instead
-  // the carrier sees where it can go (any other significant spot).
-  const restingBatons = batons.filter((b) => b.state === 'resting')
+  // Batons show under every filter, but only the ones within reach of you, so
+  // finding one is a surprise rather than a chase. A carried one is on nobody's
+  // map; instead the carrier sees where it can go (any other significant spot).
+  const restingBatons = batons.filter((b) => visibleTo(b, fan))
   const dropSpots = carried ? BATON_SPOTS.filter((s) => s !== carried.spot) : []
   const dropHere = dropSpotFor(carried, fan)
 
-  const pinRow = rank(mapLayers.pins).slice(0, PIN_ROW)
-  const mix = rank(allItems).slice(0, MIX_CAP)
+  // Framed around wherever the fan is when the map opens
+  const [initialBounds] = useState(() => nearestCoords(mapLayers.pins, fanLocation))
+  const pinRow = rank(mapLayers.pins, fanLocation).slice(0, PIN_ROW)
+  const mix = rank(allItems, fanLocation).slice(0, MIX_CAP)
   // Pins filter keeps every pin (you're looking for them). No filter keeps a short mix.
   const visibleItems = layer === null ? mix : layer === 'pins' ? mapLayers.pins : mapLayers[layer]
   const itemById = (id: string) => allItems.find((i) => i.id === id)!
@@ -195,12 +197,13 @@ export default function ExplorePage() {
     mapRef.current?.flyTo(itemById(id).coords, CARDS_PADDING)
   }
 
-  function changeLayer(next: Layer) {
-    const selected = layer === next ? null : next
+  function changeLayer(next: Layer | null) {
+    // Tapping the active filter returns to All, the unfiltered view
+    const selected = next !== null && layer === next ? null : next
     setLayer(selected)
     clearSelection()
     const items = selected === null ? mix : selected === 'pins' ? pinRow : mapLayers[selected]
-    if (items.length) mapRef.current?.fitTo(nearestCoords(items), SHEET_PADDING)
+    if (items.length) mapRef.current?.fitTo(nearestCoords(items, fanLocation), SHEET_PADDING)
   }
 
   function renderMarker(id: string) {
@@ -312,11 +315,22 @@ export default function ExplorePage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onFocus={() => setSnap('full')}
-                placeholder="Search pins, events, places, people"
+                placeholder="Search tourist attractions, events, places, people"
                 className="h-12 rounded-full pl-11 text-base"
               />
             </div>
             <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 py-3">
+              <button
+                type="button"
+                aria-pressed={layer === null}
+                onClick={() => changeLayer(null)}
+                className={cn(
+                  'h-10 shrink-0 rounded-full border px-4 text-[15px] transition-transform active:scale-95',
+                  layer === null && 'border-primary bg-primary text-primary-foreground',
+                )}
+              >
+                All
+              </button>
               {layers.map((l) => (
                 <button
                   key={l.id}
@@ -484,6 +498,7 @@ function SheetList({
   revealed: boolean
   onSelect: (id: string) => void
 }) {
+  const here = useFanLocation()
   const q = query.trim().toLowerCase()
   const layerLabel = (l: Layer) => layers.find((x) => x.id === l)!.label
 
@@ -491,7 +506,7 @@ function SheetList({
   const source = q ? allItems : layer && layer !== 'pins' ? mapLayers[layer] : []
   const results = source
     .filter((i) => !q || `${i.title} ${i.place.name} ${i.place.hood}`.toLowerCase().includes(q))
-    .sort((a, b) => distance(a.coords, FAKE_USER_LOCATION) - distance(b.coords, FAKE_USER_LOCATION))
+    .sort((a, b) => distance(a.coords, here) - distance(b.coords, here))
 
   const row = (i: MapItem) => (
     <ListRow
@@ -519,7 +534,7 @@ function SheetList({
   // Hidden at the smallest snap so only search and the filter chips remain.
   if (!q && layer === 'pins') {
     if (!revealed) return null
-    const pins = rank(mapLayers.pins)
+    const pins = rank(mapLayers.pins, here)
     return (
       <div className="space-y-3 pb-2">
         {pins.map((i) => (
@@ -557,7 +572,7 @@ const CARD_PHOTOS = 4
 
 function PinCard({ item, collected }: { item: MapItem; collected: boolean }) {
   const pin = item.pin!
-  const trip = travelFromYou(item.coords)
+  const trip = travelFromYou(item.coords, useFanLocation())
   return (
     <Link
       to={item.to}

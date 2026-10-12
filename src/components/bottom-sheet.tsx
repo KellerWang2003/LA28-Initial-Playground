@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type MouseEvent, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type MouseEvent, type PointerEvent, type WheelEvent } from 'react'
 import { cn } from '@/lib/utils'
 
 export type Snap = 'min' | 'half' | 'full'
@@ -39,10 +39,10 @@ type Gesture = {
 }
 
 // Native-style sheet that fills its positioned parent.
-// - handle: dragging resizes the sheet; so does the header, except at the middle snap
-// - middle snap: the header (search, filters) scrolls away with the list
-// - minimized: the body stays put (pin cards stay hidden; no list scroll)
-// - middle and fully open: the body scrolls; at the top, dragging down resizes the sheet
+// - handle and header: dragging resizes the sheet
+// - minimized and middle: the body stays put; dragging anywhere resizes the sheet, so
+//   pulling up from the middle opens it fully instead of scrolling the list
+// - fully open: the body scrolls; at the top, dragging down resizes the sheet
 export function BottomSheet({ snap, onSnapChange, hidden, header, children, accessory, minHeight = MIN_HEIGHT }: Props) {
   const boundsRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -75,9 +75,9 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
     latest.current = { heights, snap, height, onSnapChange }
   })
 
-  // Collapsing all the way puts the list back at the top. The middle snap keeps its place.
+  // Only the full sheet scrolls, so leaving it puts the list back at the top
   useEffect(() => {
-    if (snap === 'min' && scrollRef.current) scrollRef.current.scrollTop = 0
+    if (snap !== 'full' && scrollRef.current) scrollRef.current.scrollTop = 0
   }, [snap])
 
   useEffect(() => {
@@ -94,11 +94,8 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
         lastT: t,
         v: 0,
         h: null,
-        // The header sits in the scroll area, but only scrolls like content at the middle snap.
-        // Elsewhere it's a handle: dragging it resizes the sheet.
-        inContent:
-          !!scrollRef.current?.contains(target as Node) &&
-          (latest.current.snap === 'half' || !headerRef.current?.contains(target as Node)),
+        // The header sits in the scroll area but is a handle: dragging it resizes the sheet
+        inContent: !!scrollRef.current?.contains(target as Node) && !headerRef.current?.contains(target as Node),
         mode: 'pending',
         dragged: false,
       }
@@ -111,8 +108,8 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
       const scrollTop = scrollRef.current?.scrollTop ?? 0
       const dx = x - g.startX
       const dy = y - g.startY
-      // Minimized content stays hidden, so only the middle and full snaps scroll
-      const listScrolls = snap === 'half' || snap === 'full'
+      // Only the full sheet scrolls; smaller, a drag resizes it
+      const listScrolls = snap === 'full'
 
       if (g.mode === 'pending') {
         // While the list isn't meant to scroll, don't let a touch start a native scroll
@@ -210,6 +207,11 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
     if (e.pointerType === 'mouse' && e.button === 0) mouseHandlers.current?.down(e)
   }
 
+  // Trackpad or wheel (desktop): scrolling the list at the middle snap opens the sheet fully
+  function onWheel(e: WheelEvent) {
+    if (snap === 'half' && dragHeight === null && e.deltaY > 4) onSnapChange('full')
+  }
+
   // A drag shouldn't also tap whatever row it started on
   function onClickCapture(e: MouseEvent) {
     if (!suppressClick.current) return
@@ -224,6 +226,7 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
         ref={sheetRef}
         onPointerDown={onPointerDown}
         onClickCapture={onClickCapture}
+        onWheel={onWheel}
         className={cn(
           // Bottom padding matches the floating tab bar (h-16) plus its inset (same 1rem as the bar's px-4),
           // so the list ends on the sheet background instead of sliding out under the bar.
@@ -241,19 +244,18 @@ export function BottomSheet({ snap, onSnapChange, hidden, header, children, acce
         <div className="shrink-0 cursor-grab pt-2 pb-3 select-none active:cursor-grabbing">
           <div className="mx-auto h-1.5 w-10 rounded-full bg-muted-foreground/30" />
         </div>
-        {/* Body scrolls at the middle and full snaps. While the sheet is being dragged, or when it is
-            minimized, the body stays clipped so hidden pin cards don't become a long scroll.
-            The header scrolls with it at the middle snap; fully open, it stays pinned on top. */}
+        {/* Body scrolls only when fully open, with the header pinned on top. Smaller, or while the
+            sheet is being dragged, it stays clipped and a drag resizes the sheet instead. */}
         <div
           ref={scrollRef}
           className={cn(
             'min-h-0 flex-1 overscroll-contain pb-4',
-            (snap === 'half' || snap === 'full') && dragHeight === null ? 'overflow-y-auto' : 'overflow-hidden',
+            snap === 'full' && dragHeight === null ? 'overflow-y-auto' : 'overflow-hidden',
           )}
         >
           <div
             ref={headerRef}
-            className={cn(snap !== 'half' && 'cursor-grab select-none active:cursor-grabbing', snap === 'full' && 'sticky top-0 z-10 bg-background')}
+            className={cn('cursor-grab select-none active:cursor-grabbing', snap === 'full' && 'sticky top-0 z-10 bg-background')}
           >
             {header}
           </div>

@@ -1,6 +1,8 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes, useParams } from 'react-router'
 import { AppShell } from '@/components/app-shell'
 import { EmptyScreen } from '@/components/empty-screen'
+import { SaveButton } from '@/components/save-sheet'
 import ExplorePage from '@/pages/explore'
 import PinCapturePage from '@/pages/pin-capture'
 import PinDetailPage from '@/pages/pin-detail'
@@ -13,15 +15,29 @@ import BatonRecapPage from '@/pages/baton-recap'
 import PassportPage, { PassportStorePage } from '@/pages/passport'
 import EventsPage from '@/pages/events'
 import EventCreatePage from '@/pages/event-create'
+import KeepGoingPage from '@/pages/keep-going'
 import SportsPage from '@/pages/sports'
+import GameRoomPage from '@/pages/game-room'
+import SavedPage from '@/pages/saved'
+import SavedListPage from '@/pages/saved-list'
+import GameRecapPage from '@/pages/game-recap'
+import CrowdPlayPage from '@/pages/crowd-play'
 import ProfilePage from '@/pages/profile'
 import ProfileSettingsPage from '@/pages/profile-settings'
 import PeoplePage from '@/pages/people'
 import PeopleAddPage from '@/pages/people-add'
+import MyCodePage from '@/pages/my-code'
+import PersonPage from '@/pages/person'
+import SearchPage from '@/pages/search'
 import { chats, personById } from '@/data/mock'
-import { eventById, placeById, sessionById } from '@/data/la28'
+import { eventById, placeById } from '@/data/la28'
+
+// Loads only when opened: it reads the app's source to count where components are used
+const DevDesignPage = lazy(() => import('@/pages/dev-design'))
 
 function App() {
+  // The compiler drops the keep-going route from this list. Leave the router unmemoized.
+  "use no memo"
   return (
     <>
     <Routes>
@@ -43,17 +59,25 @@ function App() {
       <Route path="batons/recap" element={<BatonRecapPage />} />
       <Route path="profile" element={<ProfilePage />} />
       <Route path="profile/settings" element={<ProfileSettingsPage />} />
-      <Route path="sports/games/:sessionId" element={<GameRoom />} />
-      <Route path="sports/games/:sessionId/recap" element={<GameRecap />} />
+      <Route path="profile/saved" element={<SavedPage />} />
+      <Route path="profile/saved/:listId" element={<SavedListPage />} />
+      <Route path="sports/games/:sessionId" element={<GameRoomPage />} />
+      <Route path="sports/games/:sessionId/recap" element={<GameRecapPage />} />
+      <Route path="sports/games/:sessionId/play" element={<CrowdPlayPage />} />
       <Route path="events/create" element={<EventCreatePage />} />
+      <Route path="events/keep-going" element={<KeepGoingPage />} />
       <Route path="events/:eventId" element={<EventDetail />} />
       <Route path="places/:placeId" element={<PlaceDetail />} />
+      <Route path="search" element={<SearchPage />} />
       <Route path="people/add" element={<PeopleAddPage />} />
+      <Route path="people/add/code" element={<MyCodePage />} />
       <Route path="people/chat/:chatId" element={<ChatThread />} />
-      <Route path="people/:personId" element={<PersonProfile />} />
+      <Route path="people/:personId" element={<PersonPage />} />
 
       {/* Prototype only: jump into each challenge flow */}
       <Route path="dev/flows" element={<DevFlowsPage />} />
+      {/* Prototype only: the design system, every shared component in its states */}
+      <Route path="dev/design" element={<Suspense><DevDesignPage /></Suspense>} />
 
       <Route path="*" element={<Navigate to="/explore" replace />} />
     </Routes>
@@ -68,19 +92,9 @@ function App() {
 
 function EventDetail() {
   const { eventId = '' } = useParams()
-  return <EmptyScreen title={eventById(eventId)?.title ?? 'Event'} />
-}
-
-function GameRoom() {
-  const { sessionId = '' } = useParams()
-  const session = sessionById(sessionId)
-  return <EmptyScreen title={session ? `${session.title} · Room` : 'Game room'} />
-}
-
-function GameRecap() {
-  const { sessionId = '' } = useParams()
-  const session = sessionById(sessionId)
-  return <EmptyScreen title={session ? `${session.title} · Recap` : 'Game recap'} />
+  const event = eventById(eventId)
+  // Not designed yet, but saving to a list lives here
+  return <EmptyScreen title={event?.title ?? 'Event'} action={event && <SaveButton item={{ kind: 'event', id: event.id }} header />} />
 }
 
 function PlaceDetail() {
@@ -92,11 +106,6 @@ function ChatThread() {
   const { chatId = '' } = useParams()
   const chat = chats.find((c) => c.id === chatId)
   return <EmptyScreen title={chat ? personById(chat.personId)!.name : 'Chat'} />
-}
-
-function PersonProfile() {
-  const { personId = '' } = useParams()
-  return <EmptyScreen title={personById(personId)?.name ?? 'Profile'} />
 }
 
 export default App

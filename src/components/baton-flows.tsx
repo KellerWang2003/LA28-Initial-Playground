@@ -39,7 +39,7 @@ const walk = (place: string, label: string): FlowAction => ({ label, run: () => 
 const FLOWS: BatonFlow[] = [
   {
     title: 'Found by notification',
-    detail: 'Near Union Station → alert → card → walk there → Accept',
+    detail: 'Out of range of Union Station (nothing on the map) → walk closer → it appears, alert → card → Accept',
     endsOn: ['accepted'],
     setup: () => {
       const id = stageBaton('swimming', 'union')
@@ -56,7 +56,6 @@ const FLOWS: BatonFlow[] = [
       stageBaton('athletics', 'union')
       quietAlerts()
       setCollected('p_union', false)
-      setDebug({ inRadius: true })
       moveFan({ place: 'union', near: false })
       return { to: '/explore/pins/p_union' }
     },

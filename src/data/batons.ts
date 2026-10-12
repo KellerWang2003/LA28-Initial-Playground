@@ -10,11 +10,17 @@ export const BATON_CONFIG = {
   // Batons placed each day, by date; `default` for any other day
   batonsPerDay: { default: 5 } as Record<string, number>,
   carryMinutes: 60,
-  // A resting baton this close sends a nearby alert (once a day per baton).
-  // Wider than the claim radius, so the alert comes before you can take it.
-  notifyRadiusM: 3000,
+  // Batons are a surprise, not something to chase: one only appears (on the
+  // map, as a nearby alert) once you're already within reach of it. Seen from
+  // farther away it would be gone by the time you got there.
+  visibleRadiusM: 2000,
+  // A baton coming into view sends one nearby alert (once a day per baton)
+  notifyRadiusM: 2000,
   // Close enough to accept a baton
   claimRadiusM: 2000,
+  // The daily placement keeps batons this far apart, so finding one is rare
+  // and you'd seldom have two in reach at once
+  minApartM: 4000,
   // Close enough to a spot to drop one there
   atSpotRadiusM: 50,
   // End of the day: recap, then batons reset for tomorrow (local time)
@@ -87,6 +93,9 @@ export const MOCK_CARRIERS: Carrier[] = [
   { name: 'Liam', cc: 'AU' },
   { name: 'Chloé', cc: 'FR' },
 ]
+
+// Photos mock carriers attached to their notes
+export const MOCK_PHOTOS = ['/camera/sunset.jpg', '/camera/beach.jpg', '/camera/pier.jpg', '/camera/downtown.jpg', '/camera/stadium.jpg', '/camera/lamps.jpg', '/camera/pair.jpg']
 
 export const MOCK_NOTES: (string | null)[] = [
   'Ran the last block for the relay team 🏃',

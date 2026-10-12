@@ -1,79 +1,32 @@
-# React + TypeScript + Vite
+# LA28 Fan Passport — prototype
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A clickable, mobile-first prototype of a fan app for the LA28 Olympic Games. It's for trying out layout, interaction and user flow: exploring the city map, collecting pins with photo challenges, carrying batons, following sports and joining game rooms.
 
-Currently, two official plugins are available:
+It is a black-and-white wireframe that runs on mock data, with no backend. "Today" in the app is Thursday, July 20, 2028, and reloading the page resets the demo.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Getting started
 
-## React Compiler
-
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm install
+cp .env.example .env.local   # then add a Mapbox public token
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+The dev server listens on your local network, so you can open the printed address on your phone.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm run build` | Type-check and build to `dist/` |
+| `npm run lint` | Run ESLint |
+| `npm run preview` | Serve the built app |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Testing flows
 
-```
-# LA28-Initial-Playground
+The bug button on every screen opens the debug panel. Use it to move the fan anywhere on the map (**Where**), jump to any date and time or speed up the clock (**When**), and reset the demo. Its flow gallery (`/dev/flows`) jumps straight into each challenge flow, already set up.
+
+## Built with
+
+React 19, TypeScript, Vite, React Router, Tailwind CSS, shadcn/ui and Mapbox GL. It's deployed on Vercel.
+
+Conventions for working on the code are in [CLAUDE.md](CLAUDE.md).

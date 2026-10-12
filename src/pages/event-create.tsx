@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { PLACES, TODAY } from '@/data/la28'
+import { addPlan } from '@/lib/plans'
 import { people } from '@/data/mock'
 
 type Visibility = 'public' | 'private'
@@ -60,7 +61,7 @@ export default function EventCreatePage() {
         <Button variant="ghost" size="icon-lg" aria-label="Back" onClick={() => navigate(-1)}>
           <ChevronLeft className="size-5" />
         </Button>
-        <h1 className="font-heading text-lg font-semibold">New event</h1>
+        <h1 className="font-heading text-lg font-semibold">New plan</h1>
       </header>
 
       <div className="no-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-8">
@@ -90,7 +91,7 @@ export default function EventCreatePage() {
           Add a cover photo
         </button>
 
-        <Field id="ev-name" label="Event name" required>
+        <Field id="ev-name" label="Name" required>
           <Input id="ev-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Brazil vs Japan watch party" />
         </Field>
 
@@ -123,7 +124,7 @@ export default function EventCreatePage() {
         </div>
 
         {isPublic ? (
-          <Field id="ev-place" label="Location" required hint="Public events are held at parks and local shops that host gatherings">
+          <Field id="ev-place" label="Location" required hint="Public plans are held at parks and local shops that host gatherings">
             <Select items={locations} value={placeId} onValueChange={setPlaceId}>
               <SelectTrigger id="ev-place" className="w-full">
                 <SelectValue placeholder="Choose a spot" />
@@ -192,8 +193,24 @@ export default function EventCreatePage() {
       </div>
 
       <div className="shrink-0 border-t px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)]">
-        <Button size="lg" className="w-full" disabled={!canCreate} onClick={() => navigate('/events', { replace: true })}>
-          {isPublic ? 'Create public event' : 'Create private event'}
+        <Button
+          size="lg"
+          className="w-full"
+          disabled={!canCreate}
+          onClick={() => {
+            addPlan({
+              id: `plan-${Date.now()}`,
+              title: name.trim(),
+              date,
+              time: start,
+              where: isPublic ? place!.name : address.trim(),
+              role: 'hosting',
+              visibility,
+            })
+            navigate('/events?tab=mine', { replace: true })
+          }}
+        >
+          {isPublic ? 'Create public plan' : 'Create private plan'}
         </Button>
       </div>
     </div>

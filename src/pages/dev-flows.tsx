@@ -1,18 +1,21 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { BookOpen, ChevronLeft, ChevronRight, RotateCcw, Sparkles, type LucideIcon } from 'lucide-react'
+import { BookMarked, BookOpen, Bookmark, ChevronLeft, ChevronRight, RotateCcw, Sparkles, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DebugControls } from '@/components/debug-panel'
 import { BatonDebugControls } from '@/components/baton-debug'
 import { BatonFlowsSection } from '@/components/baton-flows'
 import { bonusIcon, resetBonus, resetDemo } from '@/lib/bonuses'
 import { setCollected } from '@/lib/collected'
+import { localMinute } from '@/lib/clock'
 import { setDebug, type DebugState } from '@/lib/debug'
+import { debugMoments } from '@/features/crowdplay/schedule'
+import { moveFan } from '@/lib/location'
 import { pinById, placeById } from '@/data/la28'
 import { BONUSES, bonusById, bonusKindTitle, type Bonus, type BonusKind } from '@/data/bonuses'
 
 // Internal page: jump straight into each challenge flow with the right setup
-// (in range, pin collected, clock inside the window, game on). Each jump opens
+// (standing at the pin, pin collected, clock inside the window, game on). Each jump opens
 // the real screen, so it's the actual flow, not a copy.
 
 type Jump = {
@@ -20,31 +23,56 @@ type Jump = {
   detail: string
   to: string
   debug?: Partial<DebugState>
+  // Where the fan stands: a place id, or null for the hotel (away from every pin)
+  at?: string | null
   collect?: Record<string, boolean>
   resetBonus?: string
 }
 
-const AT_PIN: Partial<DebugState> = { inRadius: true, time: null, venueGame: 'schedule' }
+const ON_TIME: Partial<DebugState> = { time: null, venueGame: 'schedule' }
+// Standing at the pin's place
+const atPin = (id: string) => pinById(id)!.place
 
 const structure: Jump[] = [
-  { title: 'Pin with bonuses, not collected', detail: 'Manhattan Beach · Collect and Bonus in the panel', to: '/explore/pins/p_manhattan', debug: AT_PIN, collect: { p_manhattan: false } },
+  { title: 'Pin with bonuses, not collected', detail: 'Manhattan Beach · Collect and Bonus in the panel', to: '/explore/pins/p_manhattan', debug: ON_TIME, at: atPin('p_manhattan'), collect: { p_manhattan: false } },
   { title: 'Collect at the right moment', detail: 'Manhattan Beach at sunset · the sunset bonus comes with the photo, then the bonus list', to: '/explore/pins/p_manhattan/capture',
-    debug: { ...AT_PIN, time: '2028-07-20T19:55' }, collect: { p_manhattan: false }, resetBonus: 'p_manhattan_sunset' },
-  { title: 'Collected, bonuses to play', detail: 'Urban Light · 1 of 3 done', to: '/explore/pins/p_lacma', debug: AT_PIN, collect: { p_lacma: true } },
-  { title: 'Away from the pin', detail: 'Urban Light · bonuses wait until you’re there', to: '/explore/pins/p_lacma', debug: { ...AT_PIN, inRadius: false }, collect: { p_lacma: true } },
-  { title: 'Timed bonus not open yet', detail: 'Griffith Observatory before 7:40 PM · the pin is open, the city lights bonus waits', to: '/explore/pins/p_griffith', debug: AT_PIN, collect: { p_griffith: false } },
+    debug: { ...ON_TIME, time: '2028-07-20T19:55' }, at: atPin('p_manhattan'), collect: { p_manhattan: false }, resetBonus: 'p_manhattan_sunset' },
+  { title: 'Collected, bonuses to play', detail: 'Urban Light · 1 of 3 done', to: '/explore/pins/p_lacma', debug: ON_TIME, at: atPin('p_lacma'), collect: { p_lacma: true } },
+  { title: 'Away from the pin', detail: 'Urban Light · bonuses wait until you’re there', to: '/explore/pins/p_lacma', debug: ON_TIME, at: null, collect: { p_lacma: true } },
+  { title: 'Timed bonus not open yet', detail: 'Griffith Observatory before 7:40 PM · the pin is open, the city lights bonus waits', to: '/explore/pins/p_griffith', debug: ON_TIME, at: atPin('p_griffith'), collect: { p_griffith: false } },
   { title: 'Timed bonus open now', detail: 'Malibu Pier at sunset · not collected, the bonus comes with your photo', to: '/explore/pins/p_malibu',
-    debug: { ...AT_PIN, time: '2028-07-20T19:55' }, collect: { p_malibu: false }, resetBonus: 'p_malibu_sunset' },
-  { title: 'Venue before the game', detail: 'Athletics at the Coliseum · start gun waits for 8:00 PM', to: '/explore/pins/p_coliseum', debug: AT_PIN, collect: { p_coliseum: true } },
+    debug: { ...ON_TIME, time: '2028-07-20T19:55' }, at: atPin('p_malibu'), collect: { p_malibu: false }, resetBonus: 'p_malibu_sunset' },
+  { title: 'Venue before the game', detail: 'Athletics at the Coliseum · start gun waits for 8:00 PM', to: '/explore/pins/p_coliseum', debug: ON_TIME, at: atPin('p_coliseum'), collect: { p_coliseum: true } },
   { title: 'Passport with marks', detail: 'Bonus counts on the stamps', to: '/passport' },
 ]
 
+// The Passport booklet: the cover swings open onto each bookmark
+const passport: Jump[] = [
+  { title: 'Open the Passport', detail: 'Cover opens onto the ID page', to: '/passport' },
+  { title: 'Challenges bookmark', detail: 'Daily and weekly challenges', to: '/passport?section=challenges' },
+  { title: 'Just collected a pin', detail: 'Urban Light · opens on its page, highlighted', to: '/passport?pin=p_lacma', collect: { p_lacma: true } },
+  { title: 'Batons bookmark', detail: 'Stamps from batons you carried', to: '/passport?section=batons' },
+  { title: 'Ticket stubs bookmark', detail: 'Scanned tickets', to: '/passport?section=tickets' },
+]
+
+// CrowdPlay in the swim final: the button on the game page, each step of a round, and the recap
+const SWIM = '/sports/games/s_swim_0720'
+const crowdplay: Jump[] = [
+  { title: 'Game page with the CrowdPlay button', detail: 'Live stats, the button counts down to the next round', to: SWIM, debug: { ...ON_TIME, time: '2028-07-20T19:19:40' } },
+  ...debugMoments('s_swim_0720').map((m) => ({ title: m.label, detail: 'Who’s here round · full screen', to: `${SWIM}/play`, debug: { ...ON_TIME, time: m.time } })),
+  { title: 'Recap with who was here', detail: 'Your answers, Torches and the crowd, after the game', to: `${SWIM}/recap`, debug: { ...ON_TIME, time: '2028-07-20T20:50' } },
+]
+
+// Activities: Right now, and saved lists with the Watch list
+const activities: Jump[] = [
+  { title: 'Right now', detail: 'Your live swimming room, the hangout, and the Watch list: a live game and a result', to: '/events', debug: ON_TIME },
+  { title: 'Watch-listed game opens', detail: '8:05 PM · Brazil vs Morocco joins Right now, though you’re not going', to: '/events', debug: { ...ON_TIME, time: '2028-07-20T20:05' } },
+  { title: 'Saved lists', detail: 'From the profile: Watch list, Beach days, Following Brazil, and New list', to: '/profile/saved', debug: ON_TIME },
+  { title: 'Watch list', detail: 'Live, later and finished games on one list', to: '/profile/saved/watch', debug: ON_TIME },
+]
+
 // 'YYYY-MM-DDTHH:MM' a few minutes after `iso`, in local time like the mock data
-function minutesAfter(iso: string, minutes: number) {
-  const d = new Date(Date.parse(iso) + minutes * 60_000)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
+const minutesAfter = (iso: string, minutes: number) => localMinute(Date.parse(iso) + minutes * 60_000)
 
 // Ready to play: at the pin, pin collected, bonus not done, inside its window, game on
 function bonusJump(b: Bonus): Jump {
@@ -54,10 +82,10 @@ function bonusJump(b: Bonus): Jump {
     detail: b.detail,
     to: `/explore/pins/${b.pin}/bonus/${b.id}`,
     debug: {
-      inRadius: true,
       time: b.window ? minutesAfter(b.window.opens, 5) : null,
       venueGame: pin.kind === 'venue' ? 'live' : 'schedule',
     },
+    at: pin.place,
     collect: { [b.pin]: true },
     resetBonus: b.id,
   }
@@ -99,6 +127,7 @@ export default function DevFlowsPage() {
 
   function go(jump: Jump) {
     if (jump.debug) setDebug(jump.debug)
+    if (jump.at !== undefined) moveFan(jump.at ? { place: jump.at } : null)
     Object.entries(jump.collect ?? {}).forEach(([id, on]) => setCollected(id, on))
     if (jump.resetBonus) resetBonus(jump.resetBonus)
     navigate(jump.to)
@@ -117,6 +146,24 @@ export default function DevFlowsPage() {
       <div className="no-scrollbar min-h-0 flex-1 space-y-7 overflow-y-auto overscroll-contain px-4 pt-2 pb-[max(env(safe-area-inset-bottom),24px)]">
         <Section icon={BookOpen} title="Collect and bonus">
           {structure.map((j) => (
+            <JumpRow key={j.title} jump={j} onGo={go} />
+          ))}
+        </Section>
+
+        <Section icon={Sparkles} title="CrowdPlay">
+          {crowdplay.map((j) => (
+            <JumpRow key={j.title} jump={j} onGo={go} />
+          ))}
+        </Section>
+
+        <Section icon={Bookmark} title="Activities and saved">
+          {activities.map((j) => (
+            <JumpRow key={j.title} jump={j} onGo={go} />
+          ))}
+        </Section>
+
+        <Section icon={BookMarked} title="Passport">
+          {passport.map((j) => (
             <JumpRow key={j.title} jump={j} onGo={go} />
           ))}
         </Section>

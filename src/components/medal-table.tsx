@@ -41,7 +41,7 @@ function rankTable(rows: CountryMedals[], by: RankBy) {
 }
 
 // Medal colors are functional, like pin status colors
-export const medalDot = {
+const medalDot = {
   gold: 'bg-[#d4af37]',
   silver: 'bg-[#b8b8bd]',
   bronze: 'bg-[#c27c3e]',
@@ -105,7 +105,7 @@ export function MedalTable({
   const shown = expanded ? ranked : ranked.slice(0, PREVIEW)
 
   return (
-    <section className="overflow-hidden rounded-2xl border">
+    <section className="overflow-hidden rounded-2xl bg-card">
       <div className="flex items-center gap-2 p-4">
         <button
           type="button"
@@ -165,7 +165,7 @@ export function MedalTable({
                 <tr
                   onClick={expanded && drilldown ? () => setOpen(rowOpen ? null : c.code) : undefined}
                   aria-expanded={expanded && drilldown ? rowOpen : undefined}
-                  className={cn('border-t', expanded && drilldown && 'cursor-pointer', rowOpen && 'bg-muted/60')}
+                  className={cn('border-t', expanded && drilldown && 'cursor-pointer', rowOpen && 'bg-background/60')}
                 >
                   <td className="py-2.5 pl-4 text-muted-foreground">
                     {c.shared && '='}
@@ -193,7 +193,7 @@ export function MedalTable({
                 </tr>
                 {rowOpen &&
                   c.bySport.map((s) => (
-                    <tr key={s.sport} className="bg-muted/60 text-xs text-muted-foreground">
+                    <tr key={s.sport} className="bg-background/60 text-xs text-muted-foreground">
                       <td />
                       <td className="py-1.5">{s.sport}</td>
                       <td className="text-center">{s.gold}</td>

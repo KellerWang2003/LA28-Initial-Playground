@@ -1,10 +1,10 @@
-import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { ChevronLeft, Settings } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Settings } from 'lucide-react'
 import { FanCode } from '@/components/fan-code'
 import { ImagePlaceholder } from '@/components/image-placeholder'
 import { MapView, type MapMarker } from '@/components/map-view'
 import { PinShape } from '@/components/pin-art'
+import { ListCover } from '@/components/save-sheet'
 import { ShapeIcon } from '@/components/shape-art'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,7 @@ import { useCollected } from '@/lib/collected'
 import { SEED_CONNECTIONS, useConnections } from '@/lib/connections'
 import { planned, useMyGames } from '@/lib/my-games'
 import { countryName, useProfile } from '@/lib/profile'
+import { useSaved } from '@/lib/saved'
 import { useWallet } from '@/lib/wallet'
 
 const GAMES_SHOWN = 4
@@ -98,6 +99,8 @@ export default function ProfilePage() {
             <Stat value={added.length} label="People" hint="People added" />
           </dl>
         </section>
+
+        <Saved />
 
         <section>
           <h2 className="font-heading font-semibold">Explored</h2>
@@ -234,30 +237,50 @@ function PlaceDot({ label }: { label: string }) {
   return <span role="img" aria-label={label} className="block size-3 rounded-full border-2 border-white bg-foreground shadow" />
 }
 
+// A preview of your saved lists; tapping it opens all of them
+function Saved() {
+  const lists = useSaved()
+  const total = lists.reduce((sum, list) => sum + list.items.length, 0)
+
+  return (
+    <section>
+      <h2 className="font-heading font-semibold">Saved</h2>
+      <Link to="/profile/saved" className="mt-3 flex items-center gap-3 rounded-2xl border px-3 py-2">
+        {/* Fanned out with the Watch list on top */}
+        <span className="flex shrink-0 -space-x-8">
+          {lists.slice(0, 3).map((list, i) => (
+            <span key={list.id} className="relative" style={{ zIndex: 3 - i }}>
+              <ListCover list={list} className="size-14 rounded-xl ring-2 ring-background" />
+            </span>
+          ))}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium">
+            {lists.length} {lists.length === 1 ? 'list' : 'lists'} · {total} saved
+          </span>
+          <span className="block truncate text-sm text-muted-foreground">{lists.map((list) => list.name).join(', ')}</span>
+        </span>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+      </Link>
+    </section>
+  )
+}
+
+// Opens your code on your Passport page, the same one the scanner shows
 function MyCode() {
-  const [open, setOpen] = useState(false)
   const code = fanCode(ME_ID)
 
   return (
     <section>
       <h2 className="font-heading font-semibold">My code</h2>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-        className="mt-3 flex w-full items-center gap-3 rounded-2xl border px-3 py-2 text-left"
-      >
+      <Link to="/people/add/code" className="mt-3 flex w-full items-center gap-3 rounded-2xl border px-3 py-2 text-left">
         <FanCode value={code} className="size-14 shrink-0 rounded-lg" />
         <span className="min-w-0 flex-1">
-          <span className="block font-medium">{open ? 'Hide code' : 'Show your code'}</span>
+          <span className="block font-medium">Show your code</span>
           <span className="block font-mono text-xs text-muted-foreground">{code}</span>
         </span>
-      </button>
-      {open && (
-        <div className="mt-3 flex justify-center rounded-3xl border bg-white p-3">
-          <FanCode value={code} className="w-56 rounded-2xl" />
-        </div>
-      )}
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+      </Link>
     </section>
   )
 }

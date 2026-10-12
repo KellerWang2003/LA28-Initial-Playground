@@ -3,6 +3,8 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router'
 import { RotateCcw, X } from 'lucide-react'
 import { MapView, type MapPadding } from '@/components/map-view'
 import { BatonArt } from '@/components/baton-art'
+import { NoteBody } from '@/components/baton-note'
+import { hasNote } from '@/lib/batons'
 import { Button } from '@/components/ui/button'
 import { placeCoords } from '@/lib/location'
 import { carrierLabel, carrierName, saveRecaps, timeOfDay, useBatonLog, usePendingRecaps, type Recap } from '@/lib/batons'
@@ -164,7 +166,7 @@ function RecapPage({ recap, active }: { recap: Recap; active: boolean }) {
                     ? `${carrierLabel(leg.carrier)}${mine && leg.carrier.anonymous ? ` · shown as ${carrierName(leg.carrier)}` : ''}`
                     : 'Placed here to start the day'}
                 </p>
-                {leg.note && <p className="mt-1 text-sm">“{leg.note}”</p>}
+                {hasNote(leg) && <NoteBody note={leg.note} photo={leg.photo} size="sm" className="mt-1.5" />}
               </div>
             </li>
           )

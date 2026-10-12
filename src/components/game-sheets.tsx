@@ -1,13 +1,13 @@
 import { useEffect, type ReactNode } from 'react'
-import { Check, MapPin, Tv, X } from 'lucide-react'
+import { Bookmark, Check, ChevronRight, MapPin, Tv, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ShapeIcon } from '@/components/shape-art'
-import { SCHEDULE, SPORT_SHAPE, formatDate, formatTime, placeById, type Session } from '@/data/la28'
+import { formatDate, formatTime, placeById, type Session } from '@/data/la28'
 import { ATTEND_MODES, gameFor, removeGame, setGame, useMyGames, type AttendMode } from '@/lib/my-games'
+import { useSaved } from '@/lib/saved'
 import { cn } from '@/lib/utils'
 
 // Same dialog shell as the debug panel: dimmed backdrop, card pinned to the bottom
-function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -41,8 +41,10 @@ const sessionWhen = (session: Session) =>
   `${formatDate(session.date)} · ${formatTime(session.start)} · ${placeById(session.venue).name}`
 
 // How will you take part? Also where you remove a game you added.
-export function GameModeSheet({ session, onClose }: { session: Session; onClose: () => void }) {
+// With `onSave`, a last option for fans who are only interested: save it to a list.
+export function GameModeSheet({ session, onClose, onSave }: { session: Session; onClose: () => void; onSave?: () => void }) {
   const current = gameFor(useMyGames(), session.id)
+  const savedIn = useSaved().filter((l) => l.items.some((i) => i.kind === 'game' && i.id === session.id))
 
   return (
     <Sheet title={current ? 'Your game' : 'Add this game'} onClose={onClose}>
@@ -53,7 +55,9 @@ export function GameModeSheet({ session, onClose }: { session: Session; onClose:
         </p>
       </div>
 
-      <p className="mt-4 mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">How are you taking part?</p>
+      <p className="mt-4 mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {onSave ? 'How are you following it?' : 'How are you taking part?'}
+      </p>
       <div className="space-y-2">
         {ATTEND_MODES.map((mode) => {
           const Icon = modeIcon[mode.id]
@@ -78,6 +82,24 @@ export function GameModeSheet({ session, onClose }: { session: Session; onClose:
             </button>
           )
         })}
+        {onSave && (
+          <button
+            type="button"
+            onClick={onSave}
+            className={cn('flex w-full items-start gap-3 rounded-2xl border p-3 text-left', savedIn.length > 0 && 'border-foreground')}
+          >
+            <Bookmark className={cn('mt-0.5 size-5 shrink-0', savedIn.length > 0 && 'fill-current')} />
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">Just interested</span>
+              <span className="block text-sm text-muted-foreground">
+                {savedIn.length > 0
+                  ? `Saved to ${savedIn.map((l) => l.name).join(', ')}`
+                  : 'Save it to a list. On your Watch list, it shows in Right now while it’s on.'}
+              </span>
+            </span>
+            <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          </button>
+        )}
       </div>
 
       {current && (
@@ -91,45 +113,6 @@ export function GameModeSheet({ session, onClose }: { session: Session; onClose:
         >
           Remove from my games
         </Button>
-      )}
-    </Sheet>
-  )
-}
-
-// Everything still ahead (or live) that you have not added yet
-export function AddGameSheet({ sport, onClose, onPick }: { sport?: string; onClose: () => void; onPick: (session: Session) => void }) {
-  const mine = useMyGames()
-  const options = SCHEDULE.filter((s) => s.status !== 'finished' && (!sport || s.sport === sport) && !gameFor(mine, s.id)).sort((a, b) =>
-    `${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`),
-  )
-
-  return (
-    <Sheet title={sport ? `Add a ${sport} game` : 'Add a game'} onClose={onClose}>
-      {options.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Every upcoming game is already on your list.</p>
-      ) : (
-        <ul className="-mx-1">
-          {options.map((session) => {
-            const shape = SPORT_SHAPE[session.sport]
-            return (
-              <li key={session.id}>
-                <button
-                  type="button"
-                  onClick={() => onPick(session)}
-                  className="flex w-full items-center gap-3 rounded-xl px-1 py-2.5 text-left hover:bg-muted"
-                >
-                  {shape && <ShapeIcon shape={shape} className="size-5 shrink-0" />}
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{session.title}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {session.sport} · {session.status === 'live' ? 'Live now' : sessionWhen(session)}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
       )}
     </Sheet>
   )

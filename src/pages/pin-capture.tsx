@@ -69,7 +69,7 @@ export default function PinCapturePage() {
           <Button size="lg" variant="outline" className="flex-1" onClick={() => navigate('/explore', { replace: true })}>
             Back to map
           </Button>
-          <Button size="lg" className="flex-1" onClick={() => navigate('/passport', { replace: true })}>
+          <Button size="lg" className="flex-1" onClick={() => navigate(`/passport?pin=${pin.id}`, { replace: true })}>
             Open Passport
           </Button>
         </div>
@@ -103,7 +103,7 @@ export default function PinCapturePage() {
       {step === 'progress' && (
         <ProgressStep
           onMap={() => (bonuses.length ? setStep('bonus') : navigate('/explore', { replace: true }))}
-          onPassport={() => navigate('/passport', { replace: true })}
+          onPassport={() => navigate(`/passport?pin=${pin.id}`, { replace: true })}
         />
       )}
       {step === 'bonus' && <BonusStep bonuses={bonuses} onLater={() => navigate('/explore', { replace: true })} />}

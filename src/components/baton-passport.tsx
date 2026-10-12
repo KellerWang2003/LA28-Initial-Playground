@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Play, X } from 'lucide-react'
 import { BatonArt } from '@/components/baton-art'
+import { NoteBody } from '@/components/baton-note'
+import { hasNote } from '@/lib/batons'
 import { BatonStamp } from '@/components/baton-drop'
 import { Button } from '@/components/ui/button'
-import { countryLabel, useBatonLog, type LogEntry } from '@/lib/batons'
+import { countryLabel, type LogEntry } from '@/lib/batons'
 import { useProfile } from '@/lib/profile'
 import { cn } from '@/lib/utils'
 import { BATON_CONFIG, themeById } from '@/data/batons'
@@ -14,53 +16,21 @@ const shortDate = (dayKey: string) =>
   new Date(`${dayKey}T12:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
 // Passport > Batons: a stamp for every baton the fan carried to its next spot
-export function PassportBatons() {
-  const log = useBatonLog()
-  const [params] = useSearchParams()
-  const ref = useRef<HTMLElement>(null)
-  const [open, setOpen] = useState<LogEntry | null>(null)
-  const entries = [...log].sort((a, b) => b.at - a.at)
-
-  // Arriving from a drop: bring the stamps into view
-  const jump = params.get('section') === 'batons'
-  useEffect(() => {
-    if (jump) ref.current?.scrollIntoView({ block: 'start' })
-  }, [jump])
-
+export function BatonTile({ entry, onOpen }: { entry: LogEntry; onOpen: () => void }) {
   return (
-    <section ref={ref} id="batons" className="scroll-mt-2">
-      <div className="mb-2 flex items-baseline justify-between">
-        <h2 className="font-heading font-semibold">Batons</h2>
-        <span className="text-sm text-muted-foreground tabular-nums">{entries.length} carried</span>
-      </div>
-      {entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Batons turn up by chance at landmarks. Carry one to the next spot to earn its stamp.</p>
-      ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {entries.map((e) => (
-            <button
-              key={e.id}
-              type="button"
-              onClick={() => setOpen(e)}
-              className="flex flex-col rounded-2xl border p-3 text-left transition-transform active:scale-[0.98]"
-            >
-              <BatonArt theme={e.theme} className="mx-auto size-16" />
-              <span className="mt-1 truncate text-sm font-semibold">{themeById(e.theme).name}</span>
-              <span className="text-[11px] text-muted-foreground">{shortDate(e.dayKey)}</span>
-              <span className="mt-1 line-clamp-2 text-xs">
-                {placeById(e.from).name} → {placeById(e.to).name}
-              </span>
-              {e.note && <span className="mt-1 line-clamp-2 text-xs text-muted-foreground">“{e.note}”</span>}
-            </button>
-          ))}
-        </div>
-      )}
-      {open && <EntrySheet entry={log.find((e) => e.id === open.id) ?? open} onClose={() => setOpen(null)} />}
-    </section>
+    <button type="button" onClick={onOpen} className="flex flex-col rounded-2xl border p-3 text-left transition-transform active:scale-[0.98]">
+      <BatonArt theme={entry.theme} className="mx-auto size-12" />
+      <span className="mt-1 truncate text-sm font-semibold">{themeById(entry.theme).name}</span>
+      <span className="text-[11px] text-muted-foreground">{shortDate(entry.dayKey)}</span>
+      <span className="mt-1 line-clamp-1 text-xs">
+        {placeById(entry.from).name} → {placeById(entry.to).name}
+      </span>
+      {entry.note && <span className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">“{entry.note}”</span>}
+    </button>
   )
 }
 
-function EntrySheet({ entry, onClose }: { entry: LogEntry; onClose: () => void }) {
+export function BatonEntrySheet({ entry, onClose }: { entry: LogEntry; onClose: () => void }) {
   const navigate = useNavigate()
   const profile = useProfile()
   const [shown, setShown] = useState(false)
@@ -94,7 +64,11 @@ function EntrySheet({ entry, onClose }: { entry: LogEntry; onClose: () => void }
           <p className="text-xs font-semibold text-muted-foreground">
             Your note · {entry.anonymous ? `signed as Fan from ${countryLabel(profile.country)}` : `signed as ${profile.name.split(' ')[0]}`}
           </p>
-          <p className={cn('mt-0.5 text-sm', !entry.note && 'text-muted-foreground')}>{entry.note ? `“${entry.note}”` : 'You left it without a note.'}</p>
+          {hasNote(entry) ? (
+            <NoteBody note={entry.note} photo={entry.photo} className="mt-1.5" />
+          ) : (
+            <p className="mt-0.5 text-sm text-muted-foreground">You left it without a note.</p>
+          )}
         </div>
         {entry.recap ? (
           <Button size="lg" className="mt-4 w-full" onClick={() => navigate(`/batons/recap?entry=${entry.id}`)}>

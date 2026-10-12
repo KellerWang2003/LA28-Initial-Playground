@@ -12,11 +12,12 @@ import { useCollected, useCustomIds } from '@/lib/collected'
 import { usePinPhotos } from '@/lib/pin-photos'
 import { CustomPin } from '@/components/place-photo'
 import { MarkRow } from '@/components/bonus-list'
+import { useFanLocation } from '@/lib/location'
 import { useBonusMarks } from '@/lib/bonuses'
 import { bonusesFor } from '@/data/bonuses'
 import { cn } from '@/lib/utils'
 import { activityAt, flag, pinById, pinKindLabel, placeById, reviewsFor, type Review } from '@/data/la28'
-import { FAKE_USER_LOCATION, formatKm, formatMinutes, travelFromYou, type LngLat } from '@/data/map-layers'
+import { formatKm, formatMinutes, travelFromYou, type LngLat } from '@/data/map-layers'
 
 // Placeholder photos per place until real ones exist
 const PHOTOS = 5
@@ -33,13 +34,14 @@ export default function PinDetailPage() {
   const [photo, setPhoto] = useState(0)
   const yourPhotos = usePinPhotos(pinId)
   const marks = useBonusMarks()
+  const here = useFanLocation()
   const pin = pinById(pinId)
 
   if (!pin) return <Navigate to="/explore" replace />
 
   const place = placeById(pin.place)
   const coords: LngLat = [place.lng, place.lat]
-  const trip = travelFromYou(coords)
+  const trip = travelFromYou(coords, here)
   const activity = activityAt(place.id)
   const reviews = reviewsFor(place.id)
   const average = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
@@ -119,13 +121,13 @@ export default function PinDetailPage() {
               <MapView
                 interactive={false}
                 markers={[
-                  { id: 'me', coords: FAKE_USER_LOCATION },
+                  { id: 'me', coords: here },
                   { id: 'place', coords },
                 ]}
                 renderMarker={(id) =>
                   id === 'me' ? <UserDot /> : <PinShape shape={pin.shape} status={pin.status} collected={done} className="size-9 drop-shadow" />
                 }
-                initialBounds={[FAKE_USER_LOCATION, coords]}
+                initialBounds={[here, coords]}
                 initialPadding={MAP_PADDING}
               />
             </div>

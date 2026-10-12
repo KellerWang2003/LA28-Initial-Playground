@@ -30,9 +30,9 @@ export type LngLat = [number, number]
 export type Layer = 'pins' | 'events' | 'games' | 'watch' | 'shops' | 'people' | 'saved'
 
 export const layers: { id: Layer; label: string }[] = [
-  { id: 'pins', label: 'Pins' },
+  { id: 'pins', label: 'Tourist attractions' },
+  { id: 'games', label: 'Sports' },
   { id: 'events', label: 'Events' },
-  { id: 'games', label: 'Games' },
   { id: 'watch', label: 'Watch parties' },
   { id: 'shops', label: 'Local shops' },
   { id: 'people', label: 'People' },
@@ -74,7 +74,8 @@ export type MapItem = {
   to: string
 }
 
-// Fake "current location" (near a downtown hotel) since location is simulated
+// Where the fan starts (a downtown hotel), since location is simulated.
+// Where they are now is lib/location.ts.
 export const FAKE_USER_LOCATION: LngLat = [-118.2585, 34.0451]
 
 // How far past the Games region the camera can still go, in km.
@@ -312,10 +313,10 @@ export function distance(a: LngLat, b: LngLat) {
   return Math.sqrt(dx * dx + dy * dy)
 }
 
-// Mocked travel times from you, in minutes, from straight-line distance:
-// a detour factor for streets, then rough speeds plus waiting/parking time.
-export function travelFromYou(to: LngLat) {
-  const km = distance(FAKE_USER_LOCATION, to) * 111
+// Mocked travel times from you (`from`, where the fan is), in minutes, from
+// straight-line distance: a detour factor for streets, then rough speeds plus waiting/parking time.
+export function travelFromYou(to: LngLat, from: LngLat) {
+  const km = distance(from, to) * 111
   const route = km * 1.3
   return {
     km,

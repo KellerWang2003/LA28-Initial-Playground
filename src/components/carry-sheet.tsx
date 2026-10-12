@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Map as MapIcon, Timer, X } from 'lucide-react'
 import { BatonArt } from '@/components/baton-art'
+import { NoteBody } from '@/components/baton-note'
+import { hasNote, noteKind } from '@/lib/batons'
 import { Button } from '@/components/ui/button'
 import { formatElapsed, useClock } from '@/lib/clock'
 import { useFanAt } from '@/lib/location'
@@ -49,7 +51,7 @@ function Sheet({ baton }: { baton: Baton }) {
       />
       <div
         className={cn(
-          'absolute inset-x-0 bottom-0 rounded-t-3xl border-t bg-background px-4 pt-4 pb-[max(env(safe-area-inset-bottom),16px)] shadow-xl transition-transform duration-300 ease-out',
+          'no-scrollbar absolute inset-x-0 bottom-0 max-h-[92dvh] overflow-y-auto overscroll-contain rounded-t-3xl border-t bg-background px-4 pt-4 pb-[max(env(safe-area-inset-bottom),16px)] shadow-xl transition-transform duration-300 ease-out',
           shown ? 'translate-y-0' : 'translate-y-full',
         )}
       >
@@ -67,12 +69,12 @@ function Sheet({ baton }: { baton: Baton }) {
 
         {/* Unsealed now that it's yours */}
         <div className="mt-4">
-          {received.carrier && received.note ? (
+          {received.carrier && hasNote(received) ? (
             <figure className="rounded-2xl bg-muted px-4 py-3.5">
               <figcaption className="text-xs text-muted-foreground">
-                {carrierLabel(received.carrier)} left you a note · {timeOfDay(received.at)}
+                {carrierLabel(received.carrier)} left you {noteKind(received)} · {timeOfDay(received.at)}
               </figcaption>
-              <blockquote className="mt-1.5 font-heading text-lg leading-snug">“{received.note}”</blockquote>
+              <NoteBody note={received.note} photo={received.photo} size="lg" className="mt-2" />
             </figure>
           ) : received.carrier ? (
             <p className="rounded-2xl bg-muted px-4 py-3.5 text-sm text-muted-foreground">

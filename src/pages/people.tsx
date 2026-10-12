@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { Plus } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
+import { TabActions } from '@/components/tab-actions'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { buttonVariants } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { useConnections } from '@/lib/connections'
@@ -29,15 +28,7 @@ export default function PeoplePage() {
     <div className="pb-28">
       <PageHeader
         title="People"
-        action={
-          <Link
-            to="/people/add"
-            aria-label="Add someone"
-            className={cn(buttonVariants({ variant: 'outline', size: 'icon-lg' }), 'rounded-full')}
-          >
-            <Plus className="size-5" />
-          </Link>
-        }
+        action={<TabActions />}
       />
 
       <div className="space-y-6 px-4">

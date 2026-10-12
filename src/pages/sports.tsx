@@ -1,14 +1,13 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
-import { Search, X } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router'
 import { PageHeader } from '@/components/page-header'
 import { cn } from '@/lib/utils'
 import { LiveTimer } from '@/components/live-timer'
 import { MedalTable } from '@/components/medal-table'
-import { GoingButton, MyGames } from '@/components/my-games'
+import { GoingButton } from '@/components/my-games'
 import { ShapeIcon } from '@/components/shape-art'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { TabActions } from '@/components/tab-actions'
+import { buttonVariants } from '@/components/ui/button'
 import { athletes, medalTable, type Athlete, type CountryMedals } from '@/data/mock'
 import { followedNames, useFollowedSports } from '@/lib/followed-sports'
 import { gameFor, useMyGames } from '@/lib/my-games'
@@ -22,13 +21,10 @@ import {
   placeById,
   sessionLine,
   type Session,
-  type SessionStatus,
 } from '@/data/la28'
 
 // The filter at the top: every sport, or one
 const ALL = 'all'
-
-const statusOrder: Record<SessionStatus, number> = { live: 0, upcoming: 1, finished: 2 }
 
 const byTime = (a: Session, b: Session) => `${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`)
 
@@ -44,32 +40,12 @@ function sportMedals(sport: string) {
     .sort((a, b) => b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze || a.code.localeCompare(b.code))
 }
 
-const sessionText = (session: Session) =>
-  [session.sport, session.title, placeById(session.venue).name, session.teams?.join(' '), session.events?.join(' ')]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-
-const athleteText = (athlete: Athlete) =>
-  [athlete.name, athlete.code, athlete.sport, athlete.line].join(' ').toLowerCase()
-
 export default function SportsPage() {
-  const [searching, setSearching] = useState(false)
-  const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState(ALL)
+  // A sport opened from search arrives as ?sport=
+  const [params] = useSearchParams()
+  const [filter, setFilter] = useState(() => params.get('sport') ?? ALL)
   const followed = followedNames(useFollowedSports())
 
-  function closeSearch() {
-    setQuery('')
-    setSearching(false)
-  }
-
-  function openSport(name: string) {
-    setFilter(name)
-    closeSearch()
-  }
-
-  const q = query.trim()
   // A sport opened from search stays in the row even if you do not follow it
   const chips = filter !== ALL && !followed.includes(filter) ? SPORTS.filter((s) => s === filter || followed.includes(s)) : followed
   const sport = filter === ALL ? undefined : filter
@@ -78,50 +54,15 @@ export default function SportsPage() {
     <div className="pb-28">
       <PageHeader
         title="Sports"
-        action={
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-lg"
-            aria-label={searching ? 'Close search' : 'Search sports, games, and athletes'}
-            aria-expanded={searching}
-            className="rounded-full"
-            onClick={() => (searching ? closeSearch() : setSearching(true))}
-          >
-            {searching ? <X className="size-5" /> : <Search className="size-5" />}
-          </Button>
-        }
-        below={
-          <>
-            {searching && (
-              <div className="px-4 pb-3">
-                <Input
-                  autoFocus
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search sports, games, athletes"
-                  aria-label="Search sports, games, and athletes"
-                  className="h-12 rounded-full px-4 text-base"
-                />
-              </div>
-            )}
-            {!q && <SportFilter chips={chips} value={filter} onChange={setFilter} />}
-          </>
-        }
+        action={<TabActions search ticketSport={sport} />}
+        below={<SportFilter chips={chips} value={filter} onChange={setFilter} />}
       />
 
-      <div className="px-4">
-        {q ? (
-          <SearchResults query={q} onOpenSport={openSport} />
-        ) : (
-          <div className="space-y-6">
-            <Medals sport={sport} />
-            <MyGames sport={sport} />
-            <Upcoming sport={sport} />
-            {sport && <Athletes sport={sport} />}
-            {sport && <Results sport={sport} />}
-          </div>
-        )}
+      <div className="space-y-6 px-4">
+        <Medals sport={sport} />
+        <Upcoming sport={sport} />
+        {sport && <Athletes sport={sport} />}
+        {sport && <Results sport={sport} />}
       </div>
     </div>
   )
@@ -162,7 +103,7 @@ function Medals({ sport }: { sport?: string }) {
   const rows: CountryMedals[] = sportMedals(sport).map((row) => ({ ...row, bySport: [] }))
   if (rows.length === 0) {
     return (
-      <section className="rounded-2xl border p-4">
+      <section className="rounded-2xl bg-card p-4">
         <h2 className="font-heading font-semibold">{sport} medals</h2>
         <p className="mt-1 text-sm text-muted-foreground">No medals awarded in {sport} yet.</p>
       </section>
@@ -171,68 +112,16 @@ function Medals({ sport }: { sport?: string }) {
   return <MedalTable rows={rows} title={`${sport} medals`} subtitle="Day 7 · Thu, July 20" drilldown={false} />
 }
 
-function SearchResults({ query, onOpenSport }: { query: string; onOpenSport: (sport: string) => void }) {
-  const q = query.toLowerCase()
-  const sports = SPORTS.filter((name) => name.toLowerCase().includes(q))
-  const sessions = SCHEDULE.filter((session) => sessionText(session).includes(q)).sort(
-    (a, b) => statusOrder[a.status] - statusOrder[b.status] || byTime(a, b),
-  )
-  const people = athletes.filter((athlete) => athleteText(athlete).includes(q))
-
-  if (sports.length + sessions.length + people.length === 0) {
-    return <p className="pt-2 text-sm text-muted-foreground">Nothing matches “{query}”.</p>
-  }
-
-  return (
-    <div className="space-y-6 pt-1">
-      {sports.length > 0 && (
-        <section>
-          <h2 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Sports</h2>
-          <ul className="flex flex-wrap gap-2">
-            {sports.map((name) => {
-              const shape = SPORT_SHAPE[name]
-              return (
-                <li key={name}>
-                  <button
-                    type="button"
-                    onClick={() => onOpenSport(name)}
-                    className="inline-flex h-9 items-center gap-2 rounded-full border px-3 text-sm font-medium"
-                  >
-                    {shape && <ShapeIcon shape={shape} className="size-4 shrink-0" />}
-                    {name}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      )}
-
-      {sessions.length > 0 && (
-        <section>
-          <h2 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Games</h2>
-          <ul className="rounded-2xl border px-4">
-            {sessions.map((session) => (
-              <SessionRow key={session.id} session={session} showSport />
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {people.length > 0 && (
-        <section>
-          <h2 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">Athletes</h2>
-          <ul className="space-y-2">
-            {people.map((athlete) => (
-              <li key={athlete.id}>
-                <AthleteCard athlete={athlete} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </div>
-  )
+function formatDayHeading(date: string) {
+  const formatted = formatDate(date)
+  const full = new Date(`${date}T12:00`).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })
+  if (formatted === 'Today') return `Today · ${full}`
+  if (formatted === 'Tomorrow') return `Tomorrow · ${full}`
+  return full
 }
 
 function Upcoming({ sport }: { sport?: string }) {
@@ -248,10 +137,10 @@ function Upcoming({ sport }: { sport?: string }) {
 
   if (!sport && followed.length === 0 && sessions.length === 0) {
     return (
-      <section className="rounded-2xl border p-4">
+      <section className="rounded-2xl bg-card p-4">
         <h2 className="font-heading font-semibold">No sports selected</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Choose the sports you care about, and the timeline will show only those.
+          Choose the sports you care about, and the schedule will show only those.
         </p>
         <Link to="/profile/settings#sports" className="mt-3 inline-block text-sm font-medium underline">
           Choose sports
@@ -260,29 +149,56 @@ function Upcoming({ sport }: { sport?: string }) {
     )
   }
 
+  // Group upcoming sessions by date
+  const days = Array.from(new Set(sessions.map((s) => s.date))).sort()
+
   return (
-    <section>
-      <h2 className="mb-2 font-heading font-semibold">Upcoming</h2>
+    <section className="space-y-4">
+      <div className="flex items-baseline justify-between">
+        <h2 className="font-heading font-semibold">Upcoming</h2>
+        {sessions.length > 0 && (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {sessions.length} {sessions.length === 1 ? 'game' : 'games'}
+          </span>
+        )}
+      </div>
+
       {sessions.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {sport ? `Nothing live or coming up in ${sport}.` : 'Nothing live or coming up for the sports you follow.'}
         </p>
       ) : (
-        <ol className="relative rounded-2xl border px-4 py-4">
-          {sessions.length > 1 && (
-            <span aria-hidden className="absolute top-6 bottom-6 left-[21px] w-px bg-foreground/20" />
-          )}
-          {sessions.map((session, index) => (
-            <TimelineItem key={session.id} session={session} last={index === sessions.length - 1} />
-          ))}
-        </ol>
+        <div className="space-y-4">
+          {days.map((day) => {
+            const daySessions = sessions.filter((s) => s.date === day)
+            return (
+              <div key={day} className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {formatDayHeading(day)}
+                  </h3>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                    {daySessions.length} {daySessions.length === 1 ? 'session' : 'sessions'}
+                  </span>
+                </div>
+                <ul className="divide-y divide-background overflow-hidden rounded-2xl bg-card">
+                  {daySessions.map((session) => (
+                    <UpcomingGameRow key={session.id} session={session} showSport={!sport} />
+                  ))}
+                </ul>
+              </div>
+            )
+          })}
+        </div>
       )}
     </section>
   )
 }
 
-function TimelineItem({ session, last }: { session: Session; last: boolean }) {
+function UpcomingGameRow({ session, showSport }: { session: Session; showSport?: boolean }) {
   const live = session.status === 'live'
+  const shape = SPORT_SHAPE[session.sport]
+  const venue = placeById(session.venue)
   const detail =
     live
       ? sessionLine(session)
@@ -291,32 +207,48 @@ function TimelineItem({ session, last }: { session: Session; last: boolean }) {
         : session.events?.join(' · ')
 
   return (
-    <li className="flex gap-3">
-      <div className="relative z-10 flex w-3 shrink-0 justify-center">
-        <span
-          className={cn(
-            'mt-1.5 size-3 shrink-0 rounded-full',
-            live ? 'bg-red-500 ring-2 ring-background' : 'border-2 border-muted-foreground/50 bg-background',
-          )}
-        />
-      </div>
-      <div className={cn('min-w-0 flex-1', !last && 'pb-5')}>
-        <div className="flex items-center justify-between gap-2">
-          <p className="truncate text-xs text-muted-foreground">
-            {live ? 'Live' : `${formatDate(session.date)} · ${formatTime(session.start)}`}
-            {' · '}
-            {session.sport}
-            {session.medal && ' · Medal event'}
+    <li className="p-3.5 flex flex-col gap-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {live ? (
+              <LiveTimer since={`${session.date}T${session.start}`} className="shrink-0 shadow-none" />
+            ) : (
+              <span className="inline-flex items-center rounded-md bg-background px-2 py-0.5 text-xs font-semibold tabular-nums text-foreground">
+                {formatTime(session.start)}
+              </span>
+            )}
+            {showSport && (
+              <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                {shape && <ShapeIcon shape={shape} className="size-3 shrink-0" />}
+                {session.sport}
+              </span>
+            )}
+            {session.medal && (
+              <span className="rounded-md border border-foreground/30 px-1.5 py-0.5 text-[10px] font-semibold text-foreground uppercase tracking-wide">
+                Medal
+              </span>
+            )}
+          </div>
+
+          <p className="mt-1 font-heading text-sm font-semibold text-foreground line-clamp-1">
+            {session.title}
           </p>
-          {live && <LiveTimer since={`${session.date}T${session.start}`} className="shrink-0 shadow-none" />}
-        </div>
-        <p className="mt-0.5 font-medium">{session.title}</p>
-        {detail && <p className="mt-0.5 text-sm text-muted-foreground">{detail}</p>}
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <p className="min-w-0 truncate text-xs text-muted-foreground">
-            {placeById(session.venue).name}
+
+          {detail && (
+            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
+              {detail}
+            </p>
+          )}
+
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {venue.name} · {venue.hood}
             {!live && ` · ${formatTime(session.start)}–${formatTime(session.end)}`}
           </p>
+        </div>
+
+        {/* Going (venue or online) or just interested (saved), from one sheet */}
+        <div className="shrink-0 pt-0.5">
           <GoingButton session={session} />
         </div>
       </div>
@@ -332,7 +264,7 @@ function Athletes({ sport }: { sport: string }) {
   return (
     <section>
       <h2 className="mb-2 font-heading font-semibold">Athletes</h2>
-      <ul className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4">
+      <ul className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4">
         {sportAthletes.map((athlete) => (
           <li key={athlete.id} className="w-64 shrink-0 snap-start">
             <AthleteCard athlete={athlete} className="h-full" />
@@ -350,7 +282,7 @@ function Results({ sport }: { sport: string }) {
   return (
     <section>
       <h2 className="mb-2 font-heading font-semibold">Results</h2>
-      <ul className="rounded-2xl border px-4">
+      <ul className="rounded-2xl bg-card px-4">
         {finished.map((session) => (
           <SessionRow key={session.id} session={session} />
         ))}
@@ -359,7 +291,7 @@ function Results({ sport }: { sport: string }) {
   )
 }
 
-function SessionRow({ session, showSport }: { session: Session; showSport?: boolean }) {
+export function SessionRow({ session, showSport }: { session: Session; showSport?: boolean }) {
   const live = session.status === 'live'
   const extra =
     live || session.status === 'finished'
@@ -369,7 +301,7 @@ function SessionRow({ session, showSport }: { session: Session; showSport?: bool
         : session.events?.join(' · ')
 
   return (
-    <li className="border-b py-3 last:border-b-0">
+    <li className="border-b border-background py-3 last:border-b-0">
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 font-medium">{session.title}</p>
         {live && <LiveTimer since={`${session.date}T${session.start}`} className="shrink-0 shadow-none" />}
@@ -391,10 +323,10 @@ function SessionRow({ session, showSport }: { session: Session; showSport?: bool
   )
 }
 
-function AthleteCard({ athlete, className }: { athlete: Athlete; className?: string }) {
+export function AthleteCard({ athlete, className }: { athlete: Athlete; className?: string }) {
   const shape = SPORT_SHAPE[athlete.sport]
   return (
-    <div className={cn('rounded-2xl border p-4', className)}>
+    <div className={cn('rounded-2xl bg-card p-4', className)}>
       <div className="flex items-center gap-3">
         <span className="text-2xl leading-none">{athlete.flag}</span>
         <div className="min-w-0 flex-1">

@@ -30,7 +30,7 @@ function useNow() {
 }
 
 function clockMs(current: number, debug: DebugState) {
-  const anchor = debug.warp ?? { real: debug.time ? debug.jumpedAt : loadedAt, app: Date.parse(debug.time ?? NOW) }
+  const anchor = debug.warp ?? { real: debug.jumpedAt || loadedAt, app: Date.parse(debug.time ?? NOW) }
   return anchor.app + Math.max(0, current - anchor.real) * debug.speed
 }
 
@@ -48,6 +48,18 @@ export function nowMs() {
 export function setClockSpeed(speed: number) {
   const real = Date.now()
   setDebug({ speed, warp: { real, app: clockMs(real, getDebug()) } })
+}
+
+// 'YYYY-MM-DDTHH:MM' in local time, like the mock data (and datetime-local inputs)
+export function localMinute(ms: number) {
+  const d = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// Debug: move the clock by `ms` from wherever it is now
+export function shiftClock(ms: number) {
+  setDebug({ time: localMinute(nowMs() + ms) })
 }
 
 // Seconds since `since` ('2028-07-20T18:30'), as of NOW plus time on the page

@@ -65,23 +65,61 @@ export const athletes: Athlete[] = [
 
 // ---- People ----
 
-export type Person = { id: string; name: string; flag: string; pins: number; places: number }
+export type Person = { id: string; name: string; flag: string; pins: number; places: number; bio: string; batons: number; games: number }
 
 export const people: Person[] = [
-  { id: 'mei', name: 'Mei', flag: '🇨🇳', pins: 42, places: 19 },
-  { id: 'tomas', name: 'Tomás', flag: '🇨🇴', pins: 38, places: 22 },
-  { id: 'priya', name: 'Priya', flag: '🇬🇧', pins: 35, places: 14 },
-  { id: 'jonas', name: 'Jonas', flag: '🇩🇪', pins: 29, places: 17 },
-  { id: 'aiko', name: 'Aiko', flag: '🇯🇵', pins: 26, places: 11 },
-  { id: 'danny', name: 'Danny', flag: '🇺🇸', pins: 21, places: 8 },
+  { id: 'mei', name: 'Mei', flag: '🇨🇳', pins: 42, places: 19, bio: 'Chasing every Legendary pin before the closing ceremony.', batons: 4, games: 6 },
+  { id: 'tomas', name: 'Tomás', flag: '🇨🇴', pins: 38, places: 22, bio: 'Hosting watch parties at Sol Tacos all week.', batons: 3, games: 4 },
+  { id: 'priya', name: 'Priya', flag: '🇬🇧', pins: 35, places: 14, bio: 'Here for athletics. Will carry any baton.', batons: 5, games: 5 },
+  { id: 'jonas', name: 'Jonas', flag: '🇩🇪', pins: 29, places: 17, bio: 'Cycling between venues, one pin at a time.', batons: 2, games: 3 },
+  { id: 'aiko', name: 'Aiko', flag: '🇯🇵', pins: 26, places: 11, bio: 'Pin swapper. Bring your doubles.', batons: 1, games: 4 },
+  { id: 'danny', name: 'Danny', flag: '🇺🇸', pins: 21, places: 8, bio: 'Local. Ask me where to get coffee.', batons: 2, games: 2 },
 ]
 
 // Fans you can meet by scanning. They stay off your people list until you add them.
 export const meetable: Person[] = [
-  { id: 'lina', name: 'Lina', flag: '🇲🇽', pins: 18, places: 7 },
-  { id: 'omar', name: 'Omar', flag: '🇲🇦', pins: 15, places: 9 },
-  { id: 'noor', name: 'Noor', flag: '🇳🇱', pins: 12, places: 5 },
+  { id: 'lina', name: 'Lina', flag: '🇲🇽', pins: 18, places: 7, bio: 'First Games! Football and beach volleyball.', batons: 1, games: 3 },
+  { id: 'omar', name: 'Omar', flag: '🇲🇦', pins: 15, places: 9, bio: 'Following Morocco through the knockout rounds.', batons: 0, games: 2 },
+  { id: 'noor', name: 'Noor', flag: '🇳🇱', pins: 12, places: 5, bio: 'Swimming fan, sunrise runner.', batons: 2, games: 1 },
+  // Met through an after-game group. They stay off your list until you add them.
+  { id: 'julia', name: 'Julia', flag: '🇫🇷', pins: 14, places: 6, bio: 'Collecting the shop pins in every neighborhood.', batons: 1, games: 2 },
+  { id: 'hana', name: 'Hana', flag: '🇯🇵', pins: 9, places: 4, bio: 'Here with my family for gymnastics.', batons: 0, games: 1 },
+  { id: 'sam', name: 'Sam', flag: '🇦🇺', pins: 11, places: 3, bio: 'Surf in the morning, games at night.', batons: 1, games: 2 },
+  { id: 'rosa', name: 'Rosa', flag: '🇲🇽', pins: 8, places: 5, bio: 'Taking photos of every venue.', batons: 0, games: 1 },
+  { id: 'leo', name: 'Leo', flag: '🇩🇪', pins: 7, places: 4, bio: 'Just landed. Show me around!', batons: 0, games: 0 },
 ]
+
+// ---- Achievements ----
+
+export type AchievementId = 'first-pin' | 'ten-pins' | 'twenty-five-pins' | 'explorer' | 'wanderer' | 'baton' | 'relay' | 'game-day' | 'superfan'
+
+export const ACHIEVEMENTS: { id: AchievementId; title: string; detail: string }[] = [
+  { id: 'first-pin', title: 'First pin', detail: 'Collected a pin' },
+  { id: 'ten-pins', title: 'Collector', detail: '10 pins' },
+  { id: 'twenty-five-pins', title: 'Pin hunter', detail: '25 pins' },
+  { id: 'explorer', title: 'Explorer', detail: '5 places in LA' },
+  { id: 'wanderer', title: 'Wanderer', detail: '15 places in LA' },
+  { id: 'baton', title: 'Baton carrier', detail: 'Carried a baton' },
+  { id: 'relay', title: 'Relay runner', detail: 'Carried 3 batons' },
+  { id: 'game-day', title: 'Game day', detail: 'Went to a game' },
+  { id: 'superfan', title: 'Superfan', detail: 'Went to 4 games' },
+]
+
+// What a fan has earned, from their numbers, in catalog order
+export function achievementsOf(p: Person) {
+  const earned: Record<AchievementId, boolean> = {
+    'first-pin': p.pins >= 1,
+    'ten-pins': p.pins >= 10,
+    'twenty-five-pins': p.pins >= 25,
+    explorer: p.places >= 5,
+    wanderer: p.places >= 15,
+    baton: p.batons >= 1,
+    relay: p.batons >= 3,
+    'game-day': p.games >= 1,
+    superfan: p.games >= 4,
+  }
+  return ACHIEVEMENTS.filter((a) => earned[a.id])
+}
 
 // Stable id encoded in this user's own code
 export const ME_ID = 'me'

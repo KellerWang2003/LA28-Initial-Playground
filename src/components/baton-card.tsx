@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Lock, MapPin, Timer, X } from 'lucide-react'
 import { BatonArt } from '@/components/baton-art'
+import { NoteBody } from '@/components/baton-note'
+import { hasNote, noteKind } from '@/lib/batons'
 import { Button } from '@/components/ui/button'
 import { useFanAt } from '@/lib/location'
 import {
@@ -96,20 +98,22 @@ function CardSheet({ baton }: { baton: Baton }) {
 
           {/* The note is for whoever carries it next, so it stays sealed until you claim it */}
           <Block title="Note">
-            {lastLeg?.carrier?.me && lastLeg.note ? (
+            {lastLeg?.carrier?.me && hasNote(lastLeg) ? (
               // Your own note isn't sealed from you
               <figure className="rounded-2xl bg-muted px-3.5 py-3">
-                <figcaption className="text-xs text-muted-foreground">Your note for the next fan</figcaption>
-                <blockquote className="mt-1 text-sm">“{lastLeg.note}”</blockquote>
+                <figcaption className="mb-1.5 text-xs text-muted-foreground">Your note for the next fan</figcaption>
+                <NoteBody note={lastLeg.note} photo={lastLeg.photo} />
               </figure>
-            ) : lastLeg?.note ? (
+            ) : lastLeg && hasNote(lastLeg) ? (
               <div className="flex items-center gap-3 rounded-2xl bg-muted px-3.5 py-3">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-background">
                   <Lock className="size-4" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">{carrierLabel(lastLeg.carrier!)} left a note</p>
-                  <p className="text-xs text-muted-foreground">Claim the baton to read it.</p>
+                  <p className="text-sm font-medium">
+                    {carrierLabel(lastLeg.carrier!)} left {noteKind(lastLeg)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Claim the baton to {lastLeg.note ? 'read' : 'see'} it.</p>
                 </div>
               </div>
             ) : lastLeg ? (

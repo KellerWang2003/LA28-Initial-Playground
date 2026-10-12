@@ -8,6 +8,7 @@ import {
   DAY_THEMES,
   MOCK_CARRIERS,
   MOCK_NOTES,
+  MOCK_PHOTOS,
   themeById,
   type Carrier,
 } from '@/data/batons'
@@ -27,6 +28,8 @@ export type Leg = {
   // `anonymous` carriers chose to show as "Fan from [country]" instead of their name.
   carrier: (Carrier & { me?: boolean; anonymous?: boolean }) | null
   note: string | null
+  // One photo with the note (a URL), sealed with it until the baton is claimed
+  photo?: string
   // When it was dropped (or placed) there, in app ms
   at: number
 }
@@ -54,6 +57,7 @@ export type LogEntry = {
   from: string
   to: string
   note: string | null
+  photo?: string
   // Signed as "Fan from [country]" rather than their name
   anonymous: boolean
   at: number
@@ -146,12 +150,26 @@ function seedHistory(restSpot: string, key: string, until: number, rand: () => n
     path.push(options[Math.floor(rand() * options.length)])
   }
   path.push(restSpot)
-  return path.map((spot, i) => ({
-    spot,
-    carrier: i === 0 ? null : { ...carriers[i - 1], anonymous: rand() < 0.3 },
-    note: i === 0 ? null : MOCK_NOTES[Math.floor(rand() * MOCK_NOTES.length)],
-    at: i === 0 ? placedAt : times[i - 1],
-  }))
+  return path.map((spot, i) => (i === 0 ? { spot, carrier: null, note: null, at: placedAt } : mockLeg(spot, carriers[i - 1], times[i - 1], rand)))
+}
+
+// Another fan's leg: maybe anonymous, usually a note, sometimes a photo with it
+function mockLeg(spot: string, carrier: Carrier, at: number, rand: () => number): Leg {
+  const note = MOCK_NOTES[Math.floor(rand() * MOCK_NOTES.length)]
+  const photo = rand() < 0.4 ? MOCK_PHOTOS[Math.floor(rand() * MOCK_PHOTOS.length)] : undefined
+  return { spot, carrier: { ...carrier, anonymous: rand() < 0.3 }, note, photo, at }
+}
+
+// Random spots, spread out so you'd rarely have two in reach at once. Falls
+// back to closer spots only if the city runs out of far-apart ones.
+function spreadSpots(count: number, rand: () => number) {
+  const order = shuffle(BATON_SPOTS, rand)
+  const apart = (s: string, chosen: string[]) =>
+    chosen.every((c) => metersBetween(placeCoords(s), placeCoords(c)) >= BATON_CONFIG.minApartM)
+  const chosen: string[] = []
+  for (const s of order) if (chosen.length < count && apart(s, chosen)) chosen.push(s)
+  for (const s of order) if (chosen.length < count && !chosen.includes(s)) chosen.push(s)
+  return chosen
 }
 
 // The day's batons, each resting at a different random spot
@@ -159,7 +177,7 @@ function seedDay(key: string, generation: number, now: number): Baton[] {
   const rand = mulberry32(hash(`${key}#${generation}`))
   const themes = DAY_THEMES[key] ?? BATON_THEMES.map((t) => t.id)
   const count = BATON_CONFIG.batonsPerDay[key] ?? BATON_CONFIG.batonsPerDay.default
-  const spots = shuffle(BATON_SPOTS, rand)
+  const spots = spreadSpots(count, rand)
   return Array.from({ length: count }, (_, i) => ({
     id: `b-${key}-${generation}-${i}`,
     theme: themes[i % themes.length],
@@ -176,8 +194,8 @@ function seedDay(key: string, generation: number, now: number): Baton[] {
 const PAST_LEGS: Leg[] = [
   { spot: 'endeavour', carrier: null, note: null, at: Date.parse('2028-07-18T08:00') },
   { spot: 'coliseum', carrier: { name: 'Kwame', cc: 'GH', anonymous: true }, note: 'Back where the 84 torch was lit 🔥', at: Date.parse('2028-07-18T11:12') },
-  { spot: 'smpier', carrier: { name: 'Priya', cc: 'GB' }, note: 'Took two buses. Worth it.', at: Date.parse('2028-07-18T14:40') },
-  { spot: 'venice', carrier: { name: 'Alex', cc: 'US', me: true }, note: 'Walked it down the boardwalk at golden hour', at: Date.parse('2028-07-18T17:05') },
+  { spot: 'smpier', carrier: { name: 'Priya', cc: 'GB' }, note: 'Took two buses. Worth it.', photo: '/camera/pier.jpg', at: Date.parse('2028-07-18T14:40') },
+  { spot: 'venice', carrier: { name: 'Alex', cc: 'US', me: true }, note: 'Walked it down the boardwalk at golden hour', photo: '/camera/beach.jpg', at: Date.parse('2028-07-18T17:05') },
   { spot: 'marina', carrier: { name: 'Aiko', cc: 'JP' }, note: null, at: Date.parse('2028-07-18T18:31') },
   { spot: 'manhattan', carrier: { name: 'Tomás', cc: 'CO' }, note: 'Sunset delivery 🌅', at: Date.parse('2028-07-18T20:02') },
 ]
@@ -191,6 +209,7 @@ const SEED_LOG: LogEntry[] = [
     from: 'smpier',
     to: 'venice',
     note: 'Walked it down the boardwalk at golden hour',
+    photo: '/camera/beach.jpg',
     anonymous: false,
     at: Date.parse('2028-07-18T17:05'),
     recap: { id: 'recap-past-la84', batonId: 'b-2028-07-18-past', theme: 'la84', dayKey: '2028-07-18', legs: PAST_LEGS },
@@ -261,6 +280,19 @@ export function useCarried() {
   return id ? batons.find((b) => b.id === id) ?? null : null
 }
 
+// ---- Notes ----
+
+// A note is some text, one photo, or both
+export type NoteParts = { note: string | null; photo?: string }
+
+export const hasNote = (n: NoteParts) => !!(n.note || n.photo)
+
+// 'a note', 'a photo', 'a note and a photo'
+export function noteKind(n: NoteParts) {
+  if (n.note && n.photo) return 'a note and a photo'
+  return n.photo ? 'a photo' : 'a note'
+}
+
 // ---- Names ----
 
 const regions = new Intl.DisplayNames(['en'], { type: 'region' })
@@ -307,6 +339,11 @@ export function acceptBlock(baton: Baton, carrying: string | null, fan: FanAt, d
   const meters = metersTo(baton.spot, fan)
   if (meters > BATON_CONFIG.claimRadiusM) return { reason: 'away', meters }
   return null
+}
+
+// Only batons close to the fan show up anywhere: they're found, not hunted
+export function visibleTo(baton: Baton, fan: FanAt) {
+  return baton.state === 'resting' && metersTo(baton.spot, fan) <= BATON_CONFIG.visibleRadiusM
 }
 
 // Where the carried baton can be dropped from here: a significant spot that isn't where it was picked up
@@ -378,12 +415,12 @@ function me(anonymous = false): NonNullable<Leg['carrier']> {
   return { name: name.split(' ')[0], cc: country, me: true, anonymous }
 }
 
-export function dropBaton(note: string | null, anonymous: boolean) {
+export function dropBaton(note: string | null, anonymous: boolean, photo?: string) {
   const baton = getCarrying()
   const spot = dropSpotFor(baton, getFanAt())
   if (!baton || !spot) return
   const now = nowMs()
-  const leg: Leg = { spot, carrier: me(anonymous), note, at: now }
+  const leg: Leg = { spot, carrier: me(anonymous), note, photo, at: now }
   const entry: LogEntry = {
     id: `log-${baton.id}-${now}`,
     batonId: baton.id,
@@ -392,6 +429,7 @@ export function dropBaton(note: string | null, anonymous: boolean) {
     from: baton.spot,
     to: spot,
     note,
+    photo,
     anonymous,
     at: now,
     recap: null,
@@ -460,7 +498,7 @@ function buildRecaps(now: number): Recap[] {
         const options = BATON_SPOTS.filter((s) => s !== spot)
         spot = options[Math.floor(rand() * options.length)]
         at = Math.min(until - (count - i) * 5 * MIN, at + (20 + rand() * 40) * MIN)
-        after.push({ spot, carrier: { ...carriers[i], anonymous: rand() < 0.3 }, note: MOCK_NOTES[Math.floor(rand() * MOCK_NOTES.length)], at })
+        after.push(mockLeg(spot, carriers[i], at, rand))
       }
     }
     return [{ id: `recap-${id}`, batonId: id, theme: baton.theme, dayKey: state.day.key, legs: [...baton.history, ...after] }]
