@@ -43,7 +43,7 @@ export default function SavedListPage() {
             <p className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground">
               {list.id === WATCH_LIST && <Eye className="size-4 shrink-0" />}
               {list.id === WATCH_LIST
-                ? 'Shows in Right now while it’s on, and the result once it’s over.'
+                ? 'Shows in My activities while it’s on, and the result once it’s over.'
                 : savedCount(list)}
             </p>
 

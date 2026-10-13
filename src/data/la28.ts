@@ -55,6 +55,8 @@ export type GameEvent = {
   sponsor?: string
   host?: { name: string; cc: string }
   task?: string
+  // A watch party: the game it shows
+  watch?: string
 }
 
 export type SessionStatus = 'finished' | 'live' | 'upcoming'
@@ -220,7 +222,7 @@ export const EVENTS: GameEvent[] = [
   { id: 'e_boardwalk3x3', type: 'sponsored', title: '3x3 pickup tournament', place: 'venice', date: '2028-07-23', time: '10:00', going: 240, sponsor: 'Presented by a sponsor', why: 'You follow basketball' },
 
   // Fan-hosted
-  { id: 'e_watch_fb', type: 'fan', title: 'Brazil vs Japan watch party', place: 'sol', date: '2028-07-22', time: '13:30', host: { name: 'Tomás', cc: 'CO' }, spots: [9, 16], task: 'Group pose', pin: 'p_sol', why: 'Tomás from your crew is hosting' },
+  { id: 'e_watch_fb', type: 'fan', watch: 's_fb_0722', title: 'Brazil vs Japan watch party', place: 'sol', date: '2028-07-22', time: '13:30', host: { name: 'Tomás', cc: 'CO' }, spots: [9, 16], task: 'Group pose', pin: 'p_sol', why: 'Tomás from your crew is hosting' },
   { id: 'e_dumplings', type: 'fan', title: 'Badminton and dumplings', place: 'almansor', date: '2028-07-23', time: '12:00', host: { name: 'Mei', cc: 'CN' }, spots: [6, 10], task: 'Synced twist', pin: null, why: 'You are hosting' },
   { id: 'e_pinswap', type: 'fan', title: 'Pin swap afternoon', place: 'lantern', date: '2028-07-23', time: '15:00', host: { name: 'Aiko', cc: 'JP' }, spots: [6, 10], task: 'Pass the beat', pin: 'p_lantern', why: '2 people you met are going' },
   { id: 'e_kbbq', type: 'fan', title: 'Pre-game dinner before Nigeria vs Spain', place: 'seoulbbq', date: '2028-07-23', time: '17:00', host: { name: 'Amara', cc: 'NG' }, spots: [11, 20], task: 'Build a shape', pin: 'p_seoul', why: 'Before a game you saved' },

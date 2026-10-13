@@ -1,19 +1,24 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { useNavigate } from 'react-router'
-import { Clock, Search, TrendingUp, X } from 'lucide-react'
+import { Link, useNavigate } from 'react-router'
+import { Check, ChevronRight, Clock, Search, TrendingUp, X } from 'lucide-react'
 import { ShapeIcon } from '@/components/shape-art'
 import { Button } from '@/components/ui/button'
+import { useCollected } from '@/lib/collected'
+import { useFanLocation } from '@/lib/location'
 import { addRecentSearch, clearRecentSearches, removeRecentSearch, useRecentSearches } from '@/lib/search-history'
 import { cn } from '@/lib/utils'
 import { athletes, type Athlete } from '@/data/mock'
 import { EVENTS, SCHEDULE, SPORTS, SPORT_SHAPE, eventTypeLabel, placeById, type GameEvent, type Session } from '@/data/la28'
 import { AthleteCard, SessionRow } from '@/pages/sports'
 import { EventRow } from '@/pages/events'
+import { ItemThumb } from '@/pages/explore'
+import { allItems, distance, type LngLat, type MapItem } from '@/data/map-layers'
 
-type Filter = 'all' | 'sports' | 'games' | 'athletes' | 'plans'
+type Filter = 'all' | 'places' | 'sports' | 'games' | 'athletes' | 'plans'
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'All' },
+  { id: 'places', label: 'Places' },
   { id: 'sports', label: 'Sports' },
   { id: 'games', label: 'Games' },
   { id: 'athletes', label: 'Athletes' },
@@ -33,12 +38,19 @@ const UPCOMING_GAMES = SCHEDULE.filter((s) => s.status !== 'finished').sort((a, 
   a.status === b.status ? `${a.date}${a.start}`.localeCompare(`${b.date}${b.start}`) : a.status === 'live' ? -1 : 1,
 )
 
+// Places on the map: attractions with pins, local shops and public watch parties.
+// Games and fan-hosted plans have their own groups.
+const PLACES = allItems.filter((i) => i.kind === 'pin' || i.kind === 'shop' || (i.kind === 'watch' && i.section === 'Public'))
+const PLACE_KIND: Partial<Record<MapItem['kind'], string>> = { pin: 'Tourist attraction', shop: 'Local shop', watch: 'Watch party' }
+const nearest = (items: MapItem[], here: LngLat) => [...items].sort((a, b) => distance(a.coords, here) - distance(b.coords, here))
+
 const has = (q: string, ...parts: (string | undefined)[]) => parts.filter(Boolean).join(' ').toLowerCase().includes(q)
+const placeMatches = (i: MapItem, q: string) => has(q, i.title, i.place.name, i.place.hood, i.subtitle, PLACE_KIND[i.kind])
 const gameMatches = (s: Session, q: string) => has(q, s.sport, s.title, placeById(s.venue).name, s.teams?.join(' '), s.events?.join(' '))
 const athleteMatches = (a: Athlete, q: string) => has(q, a.name, a.code, a.sport, a.line)
 const planMatches = (e: GameEvent, q: string) => has(q, e.title, e.why, e.sport, eventTypeLabel[e.type], placeById(e.place).name, e.host?.name, e.sponsor)
 
-// One search for Activity and Sports: the box on top, filters under it. Before you type it
+// One search for Explore, Activity and Sports: the box on top, filters under it. Before you type it
 // suggests (recent searches, trending, or things to browse for the chosen filter); as you
 // type it lists matches, grouped under "All".
 export default function SearchPage() {
@@ -136,6 +148,14 @@ function Suggestions({
   onPick: (term: string) => void
   onOpenSport: (name: string) => void
 }) {
+  const here = useFanLocation()
+  if (filter === 'places') {
+    return (
+      <Group title="Nearby">
+        <PlaceList places={nearest(PLACES, here).slice(0, 6)} />
+      </Group>
+    )
+  }
   if (filter === 'sports') {
     return (
       <Group title="Browse sports">
@@ -222,11 +242,13 @@ function Results({
   onOpenSport: (name: string) => void
   onOpen: () => void
 }) {
+  const here = useFanLocation()
+  const places = nearest(PLACES.filter((i) => placeMatches(i, q)), here)
   const sports = SPORTS.filter((name) => name.toLowerCase().includes(q))
   const games = UPCOMING_GAMES.filter((s) => gameMatches(s, q))
   const people = athletes.filter((a) => athleteMatches(a, q))
   const plans = PLANS.filter((e) => planMatches(e, q))
-  const counts: Record<Exclude<Filter, 'all'>, number> = { sports: sports.length, games: games.length, athletes: people.length, plans: plans.length }
+  const counts: Record<Exclude<Filter, 'all'>, number> = { places: places.length, sports: sports.length, games: games.length, athletes: people.length, plans: plans.length }
   const total = filter === 'all' ? Object.values(counts).reduce((a, b) => a + b, 0) : counts[filter]
 
   if (total === 0) {
@@ -246,6 +268,11 @@ function Results({
   // Opening a result (a link) records the search; sports record it in onOpenSport
   return (
     <div className="space-y-6" onClickCapture={(e) => (e.target as HTMLElement).closest('a') && onOpen()}>
+      {show('places') && (
+        <Group title="Places" action={seeAll('places')}>
+          <PlaceList places={cap(places)} />
+        </Group>
+      )}
       {show('sports') && (
         <Group title="Sports" action={seeAll('sports')}>
           <SportChips sports={cap(sports)} onOpen={onOpenSport} />
@@ -340,6 +367,30 @@ function PlanList({ plans }: { plans: GameEvent[] }) {
           <EventRow e={e} />
         </li>
       ))}
+    </ul>
+  )
+}
+
+// Opens the place on the Explore map, centered with its card up
+function PlaceList({ places }: { places: MapItem[] }) {
+  const collected = useCollected()
+  return (
+    <ul className="-mx-4">
+      {places.map((i) => {
+        const done = collected.includes(i.id)
+        return (
+          <li key={i.id}>
+            <Link to={`/explore?item=${i.id}`} replace className="flex items-center gap-3 px-4 py-2.5 active:bg-muted">
+              <ItemThumb item={i} collected={done} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{i.title}</p>
+                <p className="truncate text-xs text-muted-foreground">{[PLACE_KIND[i.kind], i.place.name].join(' · ')}</p>
+              </div>
+              {done ? <Check className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
+            </Link>
+          </li>
+        )
+      })}
     </ul>
   )
 }

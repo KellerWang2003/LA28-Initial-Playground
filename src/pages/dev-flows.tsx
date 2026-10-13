@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { BookMarked, BookOpen, Bookmark, ChevronLeft, ChevronRight, RotateCcw, Sparkles, type LucideIcon } from 'lucide-react'
+import { BookMarked, BookOpen, Bookmark, ChevronLeft, ChevronRight, RotateCcw, Sparkles, Users, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DebugControls } from '@/components/debug-panel'
 import { BatonDebugControls } from '@/components/baton-debug'
@@ -10,6 +10,7 @@ import { setCollected } from '@/lib/collected'
 import { localMinute } from '@/lib/clock'
 import { setDebug, type DebugState } from '@/lib/debug'
 import { debugMoments } from '@/features/crowdplay/schedule'
+import { stageKeepGoing, type KeepStage } from '@/features/activity/keep-going-state'
 import { moveFan } from '@/lib/location'
 import { pinById, placeById } from '@/data/la28'
 import { BONUSES, bonusById, bonusKindTitle, type Bonus, type BonusKind } from '@/data/bonuses'
@@ -27,6 +28,8 @@ type Jump = {
   at?: string | null
   collect?: Record<string, boolean>
   resetBonus?: string
+  // Start the after-game hangout at this step
+  keep?: KeepStage
 }
 
 const ON_TIME: Partial<DebugState> = { time: null, venueGame: 'schedule' }
@@ -63,12 +66,24 @@ const crowdplay: Jump[] = [
   { title: 'Recap with who was here', detail: 'Your answers, Torches and the crowd, after the game', to: `${SWIM}/recap`, debug: { ...ON_TIME, time: '2028-07-20T20:50' } },
 ]
 
-// Activities: Right now, and saved lists with the Watch list
+// Activities: My activities (now and planned, then the full list), and saved lists with the Watch list
 const activities: Jump[] = [
-  { title: 'Right now', detail: 'Your live swimming room, the hangout, and the Watch list: a live game and a result', to: '/events', debug: ON_TIME },
-  { title: 'Watch-listed game opens', detail: '8:05 PM · Brazil vs Morocco joins Right now, though you’re not going', to: '/events', debug: { ...ON_TIME, time: '2028-07-20T20:05' } },
+  { title: 'My activities', detail: 'The after-game question, your live swimming room, the Watch list, then what’s planned', to: '/events', debug: ON_TIME },
+  { title: 'All my activities', detail: 'Every game, watch party and event by day, with filters', to: '/events/mine', debug: ON_TIME },
+  { title: 'Watch-listed game opens', detail: '8:05 PM · Brazil vs Morocco joins My activities, though you’re not going', to: '/events', debug: { ...ON_TIME, time: '2028-07-20T20:05' } },
   { title: 'Saved lists', detail: 'From the profile: Watch list, Beach days, Following Brazil, and New list', to: '/profile/saved', debug: ON_TIME },
   { title: 'Watch list', detail: 'Live, later and finished games on one list', to: '/profile/saved/watch', debug: ON_TIME },
+]
+
+// After swimming: the prompt 20 minutes before the end, matching, and the group's place vote
+const AFTER_SWIM: Partial<DebugState> = { ...ON_TIME, time: '2028-07-20T20:26' }
+const keepGoing: Jump[] = [
+  { title: 'Prompt before the end', detail: '8:26 PM · the alert, then the question under the swimming card', to: '/events', debug: AFTER_SWIM, keep: 'ask' },
+  { title: 'Matching', detail: 'Waiting for a group, with the option to host', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'matching' },
+  { title: 'Matched with a group', detail: 'Who’s going, where they’re from, what they speak · join or pass', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'offer' },
+  { title: 'Group voting on a place', detail: 'The vote closes 10 minutes after you join', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'voting' },
+  { title: 'Hosting', detail: 'People join one at a time, then vote', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'hosting' },
+  { title: 'Vote closed', detail: 'The plan, and the person you got talking to', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'decided' },
 ]
 
 // 'YYYY-MM-DDTHH:MM' a few minutes after `iso`, in local time like the mock data
@@ -130,6 +145,7 @@ export default function DevFlowsPage() {
     if (jump.at !== undefined) moveFan(jump.at ? { place: jump.at } : null)
     Object.entries(jump.collect ?? {}).forEach(([id, on]) => setCollected(id, on))
     if (jump.resetBonus) resetBonus(jump.resetBonus)
+    if (jump.keep) stageKeepGoing(jump.keep)
     navigate(jump.to)
   }
 
@@ -158,6 +174,12 @@ export default function DevFlowsPage() {
 
         <Section icon={Bookmark} title="Activities and saved">
           {activities.map((j) => (
+            <JumpRow key={j.title} jump={j} onGo={go} />
+          ))}
+        </Section>
+
+        <Section icon={Users} title="After the game">
+          {keepGoing.map((j) => (
             <JumpRow key={j.title} jump={j} onGo={go} />
           ))}
         </Section>

@@ -15,6 +15,7 @@ import BatonRecapPage from '@/pages/baton-recap'
 import PassportPage, { PassportStorePage } from '@/pages/passport'
 import EventsPage from '@/pages/events'
 import EventCreatePage from '@/pages/event-create'
+import MyActivitiesPage from '@/pages/my-activities'
 import KeepGoingPage from '@/pages/keep-going'
 import SportsPage from '@/pages/sports'
 import GameRoomPage from '@/pages/game-room'
@@ -66,6 +67,7 @@ function App() {
       <Route path="sports/games/:sessionId/play" element={<CrowdPlayPage />} />
       <Route path="events/create" element={<EventCreatePage />} />
       <Route path="events/keep-going" element={<KeepGoingPage />} />
+      <Route path="events/mine" element={<MyActivitiesPage />} />
       <Route path="events/:eventId" element={<EventDetail />} />
       <Route path="places/:placeId" element={<PlaceDetail />} />
       <Route path="search" element={<SearchPage />} />

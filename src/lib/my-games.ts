@@ -38,6 +38,10 @@ export function useMyGames() {
   return useSyncExternalStore(subscribe, () => games)
 }
 
+export function getMyGames() {
+  return games
+}
+
 // Add a game, or change how you attend one you already added
 export function setGame(session: string, mode: AttendMode) {
   games = games.some((g) => g.session === session)

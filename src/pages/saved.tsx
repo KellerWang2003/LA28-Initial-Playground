@@ -25,7 +25,7 @@ export default function SavedPage() {
 
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-[max(env(safe-area-inset-bottom),24px)]">
         <p className="mb-4 text-sm text-muted-foreground">
-          Games and events you’re interested in. Anything on your Watch list shows in Right now while it’s on.
+          Games and events you’re interested in. Anything on your Watch list shows in My activities while it’s on.
         </p>
         <ul className="grid grid-cols-2 gap-x-3 gap-y-4">
           {lists.map((list) => (
@@ -34,7 +34,7 @@ export default function SavedPage() {
                 <ListCover list={list} className="aspect-square w-full rounded-2xl" />
                 <p className="mt-2 truncate text-sm font-medium">{list.name}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {list.id === WATCH_LIST ? `${savedCount(list)} · Shows in Right now` : savedCount(list)}
+                  {list.id === WATCH_LIST ? `${savedCount(list)} · Shows in My activities` : savedCount(list)}
                 </p>
               </Link>
             </li>

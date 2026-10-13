@@ -117,7 +117,7 @@ export function Foundations() {
         </ol>
         <p className="mt-4 mb-1.5 text-xs font-medium">All four together</p>
         <div className="rounded-2xl border bg-background p-3">
-          <p className="mb-2 px-1 font-heading text-sm font-semibold">Right now</p>
+          <p className="mb-2 px-1 font-heading text-sm font-semibold">My activities</p>
           <div className="space-y-2">
             <div className="rounded-2xl border border-foreground bg-card p-3">
               <p className="text-xs text-muted-foreground">Swimming · SoFi Stadium</p>

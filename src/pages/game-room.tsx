@@ -11,6 +11,9 @@ import { LiveView } from '@/features/game-room/live-view'
 import { useRoomStage } from '@/features/game-room/round-phase'
 import { DelayChip, RoomSettingsSheet, SettingsButton } from '@/features/game-room/room-settings'
 import { gameFor, modeLabel, useMyGames, type AttendMode } from '@/lib/my-games'
+import { SWIM_SESSION } from '@/features/activity/keep-going'
+import { keepStep, useKeepGoing, useKeepGoingOn } from '@/features/activity/keep-going-state'
+import { KeepGoingStrip } from '@/features/activity/keep-going-strip'
 
 const modeIcon = { venue: MapPin, online: Tv } satisfies Record<AttendMode, unknown>
 
@@ -59,6 +62,10 @@ function Room({ session }: { session: Session }) {
   const stage = useRoomStage(session)
   const [sheet, setSheet] = useState<'mode' | 'settings'>()
   const [video, setVideo] = useState<VideoState>('off')
+  // After swimming: the question lives at the top of the room. Once you pass, it stays with a way back.
+  const keepOn = useKeepGoingOn(session.id)
+  const keepPassed = keepStep(useKeepGoing()) === 'out'
+  const keepGoing = keepOn || (session.id === SWIM_SESSION && keepPassed)
 
   const ModeIcon = modeIcon[mode]
 
@@ -123,6 +130,7 @@ function Room({ session }: { session: Session }) {
 
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="pt-2 pb-[max(env(safe-area-inset-bottom),16px)]">
+          {keepGoing && <KeepGoingStrip passed className="mx-4 mb-4 rounded-2xl bg-card px-4 py-3" />}
           <LiveView session={session} mode={mode} />
         </div>
       </div>

@@ -142,12 +142,10 @@ function Recap({ sessionId }: { sessionId: string }) {
       {sessionId === SWIM_SESSION && (
         <section className="rounded-2xl border p-4">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">After the final</p>
-          <p className="mt-1 font-heading font-semibold">Keep going with people from this session</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            The 200m freestyle is over. Pick a group from SoFi, then vote on a place nearby.
-          </p>
+          <p className="mt-1 font-heading font-semibold">Keep going with fans from tonight</p>
+          <p className="mt-1 text-sm text-muted-foreground">Get matched with a group from SoFi, then vote on a place nearby.</p>
           <Link to="/events/keep-going" className={cn(buttonVariants(), 'mt-4 w-full')}>
-            See the groups
+            Find a group
           </Link>
         </section>
       )}

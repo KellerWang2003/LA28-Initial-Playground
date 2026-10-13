@@ -78,7 +78,7 @@ export function SaveSheet({ item, onClose }: { item: SavedRef; onClose: () => vo
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium">{list.name}</span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {list.id === WATCH_LIST ? 'Shows in Right now while it’s on' : savedCount(list)}
+                    {list.id === WATCH_LIST ? 'Shows in My activities while it’s on' : savedCount(list)}
                   </span>
                 </span>
                 <span

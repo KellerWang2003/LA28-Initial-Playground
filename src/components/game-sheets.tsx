@@ -94,7 +94,7 @@ export function GameModeSheet({ session, onClose, onSave }: { session: Session; 
               <span className="block text-sm text-muted-foreground">
                 {savedIn.length > 0
                   ? `Saved to ${savedIn.map((l) => l.name).join(', ')}`
-                  : 'Save it to a list. On your Watch list, it shows in Right now while it’s on.'}
+                  : 'Save it to a list. On your Watch list, it shows in My activities while it’s on.'}
               </span>
             </span>
             <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />

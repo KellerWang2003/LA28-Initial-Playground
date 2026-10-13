@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { eventById, formatDate, formatTime, placeById, sessionById, type GameEvent, type Session } from '@/data/la28'
 
 // Saved lists, like wishlists: games and events a fan is interested in but not
-// necessarily going to. The Watch list is built in: what's on it shows in Right now
+// necessarily going to. The Watch list is built in: what's on it shows in My activities
 // while it's on, and its result once it's over. Going lives in `my-games` and `plans`.
 
 export type SavedRef = { kind: 'game' | 'event'; id: string }

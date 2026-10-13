@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router'
+import { useEffect } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { CalendarDays, Map, Trophy, Users } from 'lucide-react'
 import { CarryBar } from '@/components/carry-bar'
 import { cn } from '@/lib/utils'
@@ -13,6 +14,7 @@ const tabs = [
 // Mobile layout only; fills the viewport so it can be tested across device sizes.
 // Pages own their header (Explore is a full-bleed map), the tab bar floats on top.
 export function AppShell() {
+  useNoBackFromTabs()
   return (
     <div className="relative h-dvh overflow-hidden bg-background">
       <main className="no-scrollbar h-full overflow-y-auto overscroll-contain">
@@ -30,6 +32,8 @@ export function AppShell() {
             <NavLink
               key={to}
               to={to}
+              // Switching tabs doesn't stack history: tabs have nothing to go back to
+              replace
               className={({ isActive }) =>
                 cn(
                   'flex flex-col items-center justify-center gap-0.5 rounded-full text-[11px] text-muted-foreground transition-transform active:scale-95',
@@ -45,4 +49,22 @@ export function AppShell() {
       </nav>
     </div>
   )
+}
+
+// Tabs are first level, so the browser's edge swipe back (and Android's back gesture) shouldn't
+// leave them. A page can't switch the gesture off, so each tab sits on a copy of itself: arriving
+// fresh turns the entry into the copy and pushes the tab on top, and swiping back lands on the copy
+// (it looks the same), which pushes the tab again.
+function useNoBackFromTabs() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const mark = (location.state as { tabBack?: 'copy' | 'tab' } | null)?.tabBack
+  useEffect(() => {
+    // A tab already moved on in its own effect (e.g. Explore clearing ?baton=); the next run handles it
+    if ((window.history.state?.key ?? 'default') !== location.key) return
+    const here = location.pathname + location.search + location.hash
+    if (!mark) navigate(here, { replace: true, state: { tabBack: 'copy' } })
+    else if (mark === 'copy') navigate(here, { state: { tabBack: 'tab' } })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key])
 }

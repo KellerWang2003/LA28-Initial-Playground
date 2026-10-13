@@ -207,7 +207,7 @@ export default function EventCreatePage() {
               role: 'hosting',
               visibility,
             })
-            navigate('/events?tab=mine', { replace: true })
+            navigate('/events/mine', { replace: true })
           }}
         >
           {isPublic ? 'Create public plan' : 'Create private plan'}

@@ -61,7 +61,7 @@ Specs are in Notion ("LA28 — Pin Challenges Spec", "LA28 — Baton Feature Pla
   - Dropping one requires being within 50 m of the spot. After dropping, you can't re-claim that baton the same day, but you can take another right away.
   - A drop note is optional text plus at most one photo (no voice or sketches). It stays sealed until the baton is claimed: until then the card only says "[name] left a note". The writer signs with a first name or as "Fan from [country]".
   - Resting batons show on the map under every filter.
-- **Going vs saved**: going is taking part (a game at the venue or online, an event you join or host) and shows in My activities. Saved is just interested: Airbnb-style lists of games and events, reached from the Saved card on the profile. The built-in Watch list can't be deleted, and what's on it shows in Right now while it's on, plus today's results.
+- **Going vs saved**: going is taking part (a game at the venue or online, an event you join or host) and shows in My activities. Saved is just interested: Airbnb-style lists of games and events, reached from the Saved card on the profile. The built-in Watch list can't be deleted, and what's on it shows in My activities while it's on, plus today's results.
 - **Not building unless asked**:
   - Back pocket: cheer swap and score prediction (later, in Sports, not as pin bonuses) and an archery game.
   - Archived: word swap, rival ritual, stadium wave, split clue, podium pose and moment burst.

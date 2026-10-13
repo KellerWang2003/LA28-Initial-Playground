@@ -23,7 +23,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import { useCollected } from '@/lib/collected'
 import { placeCoords, useFanAt, useFanLocation } from '@/lib/location'
 import { dropSpotFor, getBatons, openBatonCard, startDrop, useBatons, useCarried, useOpenCard, visibleTo } from '@/lib/batons'
@@ -106,7 +105,6 @@ export default function ExplorePage() {
   const [snap, setSnap] = useState<Snap>('min')
   // A filter pill, or none: no selection shows the most relevant of everything
   const [layer, setLayer] = useState<Layer | null>(null)
-  const [query, setQuery] = useState('')
   // anchorId fixes the order of the "nearby" cards; selectedId follows swipes
   const [anchorId, setAnchorId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -114,6 +112,7 @@ export default function ExplorePage() {
   const [threeD, setThreeD] = useState(false)
   const [showLabels, setShowLabels] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const fan = useFanAt()
   const fanLocation = useFanLocation()
   const batons = useBatons()
@@ -151,6 +150,15 @@ export default function ExplorePage() {
     mapRef.current?.flyTo(placeCoords(baton.spot), BATON_CARD_PADDING)
   }, [batonParam, setSearchParams])
 
+  // A place picked in search links here with ?item=: center on it and open its card
+  const itemParam = searchParams.get('item')
+  useEffect(() => {
+    if (!itemParam) return
+    setSearchParams({}, { replace: true })
+    if (allItems.some((i) => i.id === itemParam)) select(itemParam)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemParam, setSearchParams])
+
   function openBaton(id: string) {
     const baton = batons.find((b) => b.id === id)
     if (!baton) return
@@ -172,14 +180,19 @@ export default function ExplorePage() {
     select(id)
   }
 
+  // The chosen item first, then the rest by distance from it
   const nearby = anchorId
-    ? [...visibleItems].sort((a, b) => distance(a.coords, itemById(anchorId).coords) - distance(b.coords, itemById(anchorId).coords))
+    ? [...visibleItems].sort(
+        (a, b) =>
+          Number(b.id === anchorId) - Number(a.id === anchorId) ||
+          distance(a.coords, itemById(anchorId).coords) - distance(b.coords, itemById(anchorId).coords),
+      )
     : []
 
   function select(id: string) {
     const item = itemById(id)
-    // A chosen filter follows a search result onto that result's layer
-    if (layer !== null && item.layer !== layer) setLayer(item.layer)
+    // An item off the current map (a search result) switches to its layer
+    if (!visibleItems.some((i) => i.id === id)) setLayer(item.layer)
     setAnchorId(id)
     setSelectedId(id)
     setSnap('min')
@@ -309,16 +322,15 @@ export default function ExplorePage() {
         }
         header={
           <div className="px-4">
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onFocus={() => setSnap('full')}
-                placeholder="Search tourist attractions, events, places, people"
-                className="h-12 rounded-full pl-11 text-base"
-              />
-            </div>
+            {/* The same search as the other tabs; places picked there come back to the map */}
+            <button
+              type="button"
+              onClick={() => navigate('/search')}
+              className="flex h-12 w-full items-center gap-3 rounded-full border px-4 text-left text-base text-muted-foreground"
+            >
+              <Search className="size-5 shrink-0" />
+              <span className="truncate">Search places, games, athletes, plans</span>
+            </button>
             <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto overscroll-x-contain px-4 py-3">
               <button
                 type="button"
@@ -349,7 +361,7 @@ export default function ExplorePage() {
           </div>
         }
       >
-        <SheetList layer={layer} query={query} mix={mix} collected={collected} revealed={snap !== 'min'} onSelect={select} />
+        <SheetList layer={layer} mix={mix} collected={collected} revealed={snap !== 'min'} onSelect={select} />
       </BottomSheet>
 
       {anchorId && (
@@ -485,27 +497,21 @@ function collectMethod(pin: Pin) {
 
 function SheetList({
   layer,
-  query,
   mix,
   collected,
   revealed,
   onSelect,
 }: {
   layer: Layer | null
-  query: string
   mix: MapItem[]
   collected: string[]
   revealed: boolean
   onSelect: (id: string) => void
 }) {
   const here = useFanLocation()
-  const q = query.trim().toLowerCase()
-  const layerLabel = (l: Layer) => layers.find((x) => x.id === l)!.label
-
-  // Searching looks across every layer; otherwise list the current one
-  const source = q ? allItems : layer && layer !== 'pins' ? mapLayers[layer] : []
-  const results = source
-    .filter((i) => !q || `${i.title} ${i.place.name} ${i.place.hood}`.toLowerCase().includes(q))
+  // The current layer, nearest first
+  const results = (layer && layer !== 'pins' ? mapLayers[layer] : [])
+    .slice()
     .sort((a, b) => distance(a.coords, here) - distance(b.coords, here))
 
   const row = (i: MapItem) => (
@@ -513,18 +519,18 @@ function SheetList({
       key={i.id}
       leading={<ItemThumb item={i} collected={collected.includes(i.id)} />}
       title={i.title}
-      subtitle={[q && layerLabel(i.layer), i.place.name, i.status].filter(Boolean).join(' · ')}
+      subtitle={[i.place.name, i.status].join(' · ')}
       done={collected.includes(i.id)}
       onClick={() => onSelect(i.id)}
     />
   )
 
-  if (!q && layer === 'saved') {
+  if (layer === 'saved') {
     return <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nothing saved yet</p>
   }
 
   // No filter: the other relevant things nearby
-  if (!q && layer === null) {
+  if (layer === null) {
     const rest = mix.filter((i) => i.kind !== 'pin')
     if (!rest.length) return null
     return <ListSection title="Also nearby">{rest.map(row)}</ListSection>
@@ -532,7 +538,7 @@ function SheetList({
 
   // Pins filter: every collectible pin.
   // Hidden at the smallest snap so only search and the filter chips remain.
-  if (!q && layer === 'pins') {
+  if (layer === 'pins') {
     if (!revealed) return null
     const pins = rank(mapLayers.pins, here)
     return (
@@ -546,7 +552,7 @@ function SheetList({
 
   // Layers with sections (Watch parties) list each section separately, in layer order
   const sections =
-    !q && layer && layer !== 'pins' ? [...new Set(mapLayers[layer].flatMap((i) => (i.section ? [i.section] : [])))] : []
+    [...new Set(mapLayers[layer].flatMap((i) => (i.section ? [i.section] : [])))]
   if (sections.length) {
     return (
       <div className="space-y-4">
@@ -560,8 +566,8 @@ function SheetList({
   }
 
   return (
-    <ListSection title={q ? 'Results' : 'Nearby'}>
-      {results.length === 0 && <p className="px-4 py-6 text-sm text-muted-foreground">No matches</p>}
+    <ListSection title="Nearby">
+      {results.length === 0 && <p className="px-4 py-6 text-sm text-muted-foreground">Nothing nearby</p>}
       {results.map(row)}
     </ListSection>
   )
@@ -627,7 +633,7 @@ function ListSection({ title, children }: { title: string; children: ReactNode }
 }
 
 // Same shapes as on the map; crew fall back to an icon
-function ItemThumb({ item, collected }: { item: MapItem; collected?: boolean }) {
+export function ItemThumb({ item, collected }: { item: MapItem; collected?: boolean }) {
   if (item.kind === 'pin') {
     return (
       <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted">
