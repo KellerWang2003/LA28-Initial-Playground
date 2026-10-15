@@ -44,7 +44,7 @@ const PREVIEW = 5
 export default function EventsPage() {
   return (
     <div className="pb-28">
-      <PageHeader title="Activities" action={<TabActions search />} />
+      <PageHeader title="Activities" action={<TabActions search tab="activities" />} />
 
       <div className="space-y-6 pt-2">
         <MyActivities />

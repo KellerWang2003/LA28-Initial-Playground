@@ -263,7 +263,7 @@ function PhotosStep({ pin, onContinue }: { pin: Pin; onContinue: () => void }) {
   return (
     <>
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto pt-2">
-        <h1 className="font-heading text-2xl font-semibold">Add photos from your visit</h1>
+        <h1 className="font-heading text-2xl font-semibold">Add photos and videos from your visit</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           They stay with {pin.name.replace(/ Pin$/, '')} in your Passport. You can add more later.
         </p>

@@ -28,7 +28,7 @@ export default function PeoplePage() {
     <div className="pb-28">
       <PageHeader
         title="People"
-        action={<TabActions />}
+        action={<TabActions tab="people" />}
       />
 
       <div className="space-y-6 px-4">

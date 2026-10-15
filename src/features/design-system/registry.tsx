@@ -303,7 +303,7 @@ export const BLOCKS: Entry[] = [
     use: 'Top of every tab page: big title, page actions, the profile button.',
     demos: [
       { label: 'Title only', full: true, node: <Frame><PageHeader title="Explore" /></Frame> },
-      { label: 'With TabActions', full: true, node: <Frame><PageHeader title="People" action={<TabActions />} /></Frame> },
+      { label: 'With TabActions', full: true, node: <Frame><PageHeader title="People" action={<TabActions tab="people" />} /></Frame> },
     ],
   },
   {
@@ -325,10 +325,11 @@ export const BLOCKS: Entry[] = [
   {
     name: 'TabActions',
     file: 'components/tab-actions',
-    use: 'The search and add buttons on Activity, Sports and People, in one ButtonGroup. Search opens the search page. Add opens scan QR code, add a ticket and create an event, in 48px rows.',
+    use: 'Each tab\u2019s own page actions, in one ButtonGroup. Search opens the search page. Activities adds a ticket or creates an event from its add menu, in 48px rows. People scans a code or shows your own. Sports has search only.',
     demos: [
-      { label: 'Add only', node: <TabActions /> },
-      { label: 'With search', node: <SearchActionsDemo /> },
+      { label: 'Activities', node: <SearchActionsDemo /> },
+      { label: 'People', node: <TabActions tab="people" /> },
+      { label: 'Sports', node: <TabActions search /> },
     ],
   },
   {

@@ -54,7 +54,7 @@ export default function SportsPage() {
     <div className="pb-28">
       <PageHeader
         title="Sports"
-        action={<TabActions search ticketSport={sport} />}
+        action={<TabActions search />}
         below={<SportFilter chips={chips} value={filter} onChange={setFilter} />}
       />
 

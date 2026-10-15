@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ImagePlus, Trash2, X } from 'lucide-react'
+import { ImagePlus, Play, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { addPinPhotos, removePinPhoto, usePinPhotos, type PinPhoto } from '@/lib/pin-photos'
 import { cn } from '@/lib/utils'
 
-// Photos from your visit to a pin, AllTrails style: an add tile, then a grid.
-// Tapping a photo opens it full screen. Used on the pin page, in the Passport,
+// Photos and videos from your visit to a pin, AllTrails style: an add tile, then a grid.
+// Tapping one opens it full screen, where videos play. Used on the pin page, in the Passport,
 // and right after collecting.
 export function PinPhotos({ pinId, className }: { pinId: string; className?: string }) {
   const photos = usePinPhotos(pinId)
@@ -20,11 +20,22 @@ export function PinPhotos({ pinId, className }: { pinId: string; className?: str
           <button
             key={p.id}
             type="button"
-            aria-label={`Photo ${i + 1} of ${photos.length}`}
+            aria-label={`${p.video ? 'Video' : 'Photo'} ${i + 1} of ${photos.length}`}
             onClick={() => setOpen(i)}
-            className="aspect-square overflow-hidden rounded-xl bg-muted active:opacity-80"
+            className="relative aspect-square overflow-hidden rounded-xl bg-muted active:opacity-80"
           >
-            <img src={p.src} alt="" className="size-full object-cover" />
+            {p.video ? (
+              <>
+                <video src={p.src} muted playsInline preload="metadata" className="size-full object-cover" />
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <span className="flex size-8 items-center justify-center rounded-full bg-black/60 text-white">
+                    <Play className="size-4 fill-current" />
+                  </span>
+                </span>
+              </>
+            ) : (
+              <img src={p.src} alt="" className="size-full object-cover" />
+            )}
           </button>
         ))}
       </div>
@@ -54,12 +65,12 @@ function AddPhotosTile({ pinId }: { pinId: string }) {
         className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border border-dashed text-muted-foreground active:bg-muted"
       >
         <ImagePlus className="size-6" />
-        <span className="text-xs font-medium">Add photos</span>
+        <span className="px-2 text-center text-xs font-medium">Add photos or videos</span>
       </button>
       <input
         ref={input}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         multiple
         hidden
         onChange={(e) => {
@@ -97,7 +108,7 @@ function PhotoViewer({
   }, [])
 
   return (
-    <div role="dialog" aria-modal aria-label="Your photos" className="fixed inset-0 z-50 flex flex-col bg-black text-white">
+    <div role="dialog" aria-modal aria-label="Your photos and videos" className="fixed inset-0 z-50 flex flex-col bg-black text-white">
       <header className="flex h-14 shrink-0 items-center justify-between px-2 pt-[env(safe-area-inset-top)]">
         <Button variant="ghost" size="icon-lg" aria-label="Close" onClick={onClose} className="text-white hover:bg-white/10 hover:text-white">
           <X className="size-5" />
@@ -108,7 +119,7 @@ function PhotoViewer({
         <Button
           variant="ghost"
           size="icon-lg"
-          aria-label="Remove photo"
+          aria-label={current.video ? 'Remove video' : 'Remove photo'}
           onClick={() => {
             if (photos.length === 1) onClose()
             onRemove(current.id)
@@ -125,7 +136,11 @@ function PhotoViewer({
       >
         {photos.map((p) => (
           <div key={p.id} className="flex size-full shrink-0 snap-center items-center justify-center">
-            <img src={p.src} alt="" className="max-h-full max-w-full object-contain" />
+            {p.video ? (
+              <video src={p.src} controls playsInline className="max-h-full max-w-full" />
+            ) : (
+              <img src={p.src} alt="" className="max-h-full max-w-full object-contain" />
+            )}
           </div>
         ))}
       </div>

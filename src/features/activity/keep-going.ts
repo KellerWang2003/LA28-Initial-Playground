@@ -43,6 +43,8 @@ export type Group = {
   id: string
   title: string
   blurb: string
+  // The group's feel, for matching (one of MATCH_VIBES)
+  vibe?: string
   languages: string[]
   members: Member[]
   // Who you end up talking to
@@ -81,10 +83,19 @@ export const SPOTS: Spot[] = [
   },
 ]
 
+// What a fan can ask for while matching: the feel of the crowd, and a language
+// (where the group's fans are from). Matching offers a group that fits first.
+export const MATCH_VIBES = [
+  { id: 'lively', label: 'Lively' },
+  { id: 'low-key', label: 'Low key' },
+  { id: 'food', label: 'Food first' },
+]
+
 // In the order matching offers them
 export const GROUPS: Group[] = [
   {
     id: 'sorrows',
+    vibe: 'lively',
     title: 'Drown our sorrows',
     blurb: 'A mix of countries, and nobody came with a plan. Somewhere to sit after the loss.',
     languages: ['English', 'French', 'Spanish'],
@@ -101,6 +112,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: 'quiet',
+    vibe: 'low-key',
     title: 'Quiet debrief',
     blurb: 'A small group that wants to sit down and replay the race.',
     languages: ['English', 'Japanese'],
@@ -114,6 +126,7 @@ export const GROUPS: Group[] = [
   },
   {
     id: 'bite',
+    vibe: 'food',
     title: 'One more bite',
     blurb: 'Food first. Wherever the group can sit down and eat.',
     languages: ['English', 'Spanish', 'Portuguese'],
@@ -148,6 +161,8 @@ const JOINERS: Member[] = [
 ]
 
 export const groupById = (id: string) => GROUPS.find((g) => g.id === id)
+
+export const MATCH_LANGUAGES = [...new Set(GROUPS.flatMap((g) => g.languages))]
 
 // Your own gathering: people join one at a time after you host
 export function hostedGroup(vibe: HostVibe, since: number, now: number): Group {
