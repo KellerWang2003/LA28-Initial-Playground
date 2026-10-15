@@ -24,6 +24,8 @@ export type KeepState = {
   // Matching: when the current search started, and the groups you passed on
   searchingSince: number | null
   passed: string[]
+  // Who you'd like to meet: a crowd feel and a language, or null for any
+  want: { vibe: string | null; language: string | null }
   // A group on offer, waiting for you to join or pass
   offerId: string | null
   // Where you ended up: a matched group, or a gathering you host
@@ -40,6 +42,7 @@ const EMPTY: KeepState = {
   prompted: false,
   searchingSince: null,
   passed: [],
+  want: { vibe: null, language: null },
   offerId: null,
   groupId: null,
   host: null,
@@ -90,7 +93,15 @@ export function myGroup(s: KeepState, now: number): Group | undefined {
   return s.groupId ? groupById(s.groupId) : undefined
 }
 
-export const nextOffer = (s: KeepState) => GROUPS.find((g) => !s.passed.includes(g.id))
+// Whether the group fits who you'd like to meet (true when you asked for nothing)
+export const fitsWant = (s: KeepState, g: Group) =>
+  (!s.want.vibe || g.vibe === s.want.vibe) && (!s.want.language || g.languages.includes(s.want.language))
+
+// A group that fits what you asked for comes first. If none is left, any group you haven't passed.
+export function nextOffer(s: KeepState) {
+  const left = GROUPS.filter((g) => !s.passed.includes(g.id))
+  return left.find((g) => fitsWant(s, g)) ?? left[0]
+}
 
 export const voteClosed = (s: KeepState, now: number) => s.votesClose !== null && now >= s.votesClose
 
@@ -107,6 +118,11 @@ export function pass() {
 
 export function reopen() {
   set({ ...EMPTY, prompted: true })
+}
+
+// Change who you'd like to meet. Tapping the chosen one again clears it.
+export function setWant(next: Partial<KeepState['want']>) {
+  set({ want: { ...state.want, ...next } })
 }
 
 // Pass on the group on offer and keep looking

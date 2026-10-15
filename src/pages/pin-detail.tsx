@@ -99,7 +99,7 @@ export default function PinDetailPage() {
         <div className="space-y-7 px-4 pt-7">
           {/* Once it's yours: the photos from your visit, and room to add more */}
           {done && (
-            <Section title="Your photos" aside={<span className="text-sm text-muted-foreground tabular-nums">{yourPhotos.length}</span>}>
+            <Section title="Your photos and videos" aside={<span className="text-sm text-muted-foreground tabular-nums">{yourPhotos.length}</span>}>
               <PinPhotos pinId={pin.id} />
             </Section>
           )}

@@ -15,6 +15,8 @@ import {
   countryName,
   groupById,
   HOST_VIBES,
+  MATCH_LANGUAGES,
+  MATCH_VIBES,
   memberById,
   tally,
   type Group,
@@ -23,6 +25,7 @@ import {
 } from '@/features/activity/keep-going'
 import {
   castVote,
+  fitsWant,
   hostGathering,
   joinIn,
   joinOffer,
@@ -33,6 +36,7 @@ import {
   pass,
   passOffer,
   reopen,
+  setWant,
   useKeepGoing,
   voteClosed,
 } from '@/features/activity/keep-going-state'
@@ -197,7 +201,70 @@ function Matching() {
             : 'Host your own and we’ll send fans who said yes your way.'}
         </p>
       </div>
+      {more && <WantPicker />}
       <HostPicker />
+    </div>
+  )
+}
+
+// While matching: who you'd like to meet, by the crowd's feel and the language they speak.
+// Matching offers a group that fits first.
+function WantPicker() {
+  const { want } = useKeepGoing()
+  return (
+    <section className="mb-3 rounded-2xl bg-card p-4">
+      <p className="font-medium">Who you’d like to meet</p>
+      <p className="mt-0.5 text-sm text-muted-foreground">Optional. We’ll look for a group that fits first.</p>
+      <ChipRow
+        label="Crowd"
+        options={MATCH_VIBES}
+        value={want.vibe}
+        onChange={(vibe) => setWant({ vibe })}
+      />
+      <ChipRow
+        label="Speaks"
+        options={MATCH_LANGUAGES.map((l) => ({ id: l, label: l }))}
+        value={want.language}
+        onChange={(language) => setWant({ language })}
+      />
+    </section>
+  )
+}
+
+// Tapping the chosen chip again clears it
+function ChipRow({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  options: { id: string; label: string }[]
+  value: string | null
+  onChange: (value: string | null) => void
+}) {
+  return (
+    <div className="mt-3">
+      <p className="mb-1.5 text-xs text-muted-foreground">{label}</p>
+      <div role="group" aria-label={label} className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
+        {options.map((o) => {
+          const on = o.id === value
+          return (
+            <button
+              key={o.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onChange(on ? null : o.id)}
+              className={cn(
+                'h-9 shrink-0 rounded-full px-3 text-sm font-medium',
+                on ? 'bg-foreground text-background' : 'bg-background text-foreground',
+              )}
+            >
+              {o.label}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -238,10 +305,14 @@ function HostPicker() {
 }
 
 function Offer({ group }: { group: Group }) {
+  const keep = useKeepGoing()
+  const asked = keep.want.vibe || keep.want.language
   return (
     <div className="space-y-5 pt-2">
       <div>
-        <p className="text-xs text-muted-foreground">Matched · {group.members.length} fans from SoFi</p>
+        <p className="text-xs text-muted-foreground">
+          {asked && !fitsWant(keep, group) ? 'Closest match' : 'Matched'} · {group.members.length} fans from SoFi
+        </p>
         <h2 className="mt-1 font-heading text-2xl font-semibold">{group.title}</h2>
         <p className="mt-2 text-sm text-muted-foreground">{group.blurb}</p>
       </div>

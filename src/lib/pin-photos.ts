@@ -2,7 +2,8 @@ import { useSyncExternalStore } from 'react'
 import { photoSrc } from '@/components/place-photo'
 import { SEED_COLLECTED } from '@/lib/collected'
 
-export type PinPhoto = { id: string; src: string; when: string }
+// A photo or a video from the visit: a pin keeps both, like a small memory capsule
+export type PinPhoto = { id: string; src: string; when: string; video?: boolean }
 
 const pool = ['/camera/sunset.jpg', '/camera/beach.jpg', '/camera/pier.jpg', '/camera/downtown.jpg', '/camera/stadium.jpg', '/camera/lamps.jpg']
 
@@ -46,11 +47,11 @@ export function addCapturePhoto(pinId: string) {
   emit()
 }
 
-// Photos picked from the camera roll. They live as object URLs for the session.
+// Photos and videos picked from the camera roll. They live as object URLs for the session.
 export function addPinPhotos(pinId: string, files: FileList | File[]) {
   const added = [...files]
-    .filter((f) => f.type.startsWith('image/'))
-    .map((f) => ({ id: `${pinId}-u${nextId++}`, src: URL.createObjectURL(f), when: 'Just now' }))
+    .filter((f) => f.type.startsWith('image/') || f.type.startsWith('video/'))
+    .map((f) => ({ id: `${pinId}-u${nextId++}`, src: URL.createObjectURL(f), when: 'Just now', video: f.type.startsWith('video/') }))
   if (!added.length) return
   photos = { ...photos, [pinId]: [...(photos[pinId] ?? []), ...added] }
   emit()
