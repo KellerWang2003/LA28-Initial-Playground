@@ -14,6 +14,7 @@ import { SaveButton } from '@/components/save-sheet'
 import { Placeholder } from '@/components/placeholder'
 import { ShapeIcon, ShapeSticker } from '@/components/shape-art'
 import { TabActions } from '@/components/tab-actions'
+import { ActivityAddButton } from '@/components/activity-add-button'
 import { localMinute } from '@/lib/clock'
 import { notify } from '@/lib/toasts'
 import { NOW, type Shape } from '@/data/la28'
@@ -325,12 +326,17 @@ export const BLOCKS: Entry[] = [
   {
     name: 'TabActions',
     file: 'components/tab-actions',
-    use: 'Each tab\u2019s own page actions, in one ButtonGroup. Search opens the search page. Activities adds a ticket or creates an event from its add menu, in 48px rows. People scans a code or shows your own. Sports has search only.',
+    use: 'Each tab\u2019s own page actions, in one ButtonGroup. Search opens the search page. People scans a code or shows your own. Activities and Sports have search only.',
     demos: [
-      { label: 'Activities', node: <SearchActionsDemo /> },
       { label: 'People', node: <TabActions tab="people" /> },
-      { label: 'Sports', node: <TabActions search /> },
+      { label: 'Search only', node: <SearchActionsDemo /> },
     ],
+  },
+  {
+    name: 'ActivityAddButton',
+    file: 'components/activity-add-button',
+    use: 'The primary add button on Activities: black and round, bottom right above the tab bar. Opens add a ticket and create an event, in 48px rows.',
+    demos: [{ label: 'Tap to open', node: <ActivityAddButton /> }],
   },
   {
     name: 'BottomSheet',

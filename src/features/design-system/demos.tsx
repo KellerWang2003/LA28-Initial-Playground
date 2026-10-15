@@ -77,7 +77,7 @@ export function MenuDemo() {
 export function SearchActionsDemo() {
   return (
     <div className="flex gap-2">
-      <TabActions search tab="activities" />
+      <TabActions search />
     </div>
   )
 }
