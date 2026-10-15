@@ -43,8 +43,9 @@ const PREVIEW = 5
 
 export default function EventsPage() {
   return (
-    <div className="pb-28">
-      <PageHeader title="Activities" action={<TabActions search tab="activities" />} />
+    // Room under the last card for the tab bar and the add button above it
+    <div className="pb-44">
+      <PageHeader title="Activities" action={<TabActions search />} />
 
       <div className="space-y-6 pt-2">
         <MyActivities />

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { CalendarDays, Map, Trophy, Users } from 'lucide-react'
+import { ActivityAddButton } from '@/components/activity-add-button'
 import { CarryBar } from '@/components/carry-bar'
 import { cn } from '@/lib/utils'
 
@@ -15,6 +16,7 @@ const tabs = [
 // Pages own their header (Explore is a full-bleed map), the tab bar floats on top.
 export function AppShell() {
   useNoBackFromTabs()
+  const { pathname } = useLocation()
   return (
     <div className="relative h-dvh overflow-hidden bg-background">
       <main className="no-scrollbar h-full overflow-y-auto overscroll-contain">
@@ -25,6 +27,14 @@ export function AppShell() {
         aria-label="Main"
         className="absolute inset-x-0 bottom-[max(env(safe-area-inset-bottom),1rem)] z-30 flex flex-col items-center gap-2 px-4"
       >
+        {/* Activities' primary add button, bottom right above the tab bar. Only the button takes taps. */}
+        {pathname === '/events' && (
+          <div className="pointer-events-none flex w-full max-w-sm justify-end">
+            <span className="pointer-events-auto">
+              <ActivityAddButton />
+            </span>
+          </div>
+        )}
         {/* Carry mode: the baton and its time left, on every tab */}
         <CarryBar />
         <div className="grid h-16 w-full max-w-sm grid-cols-4 rounded-full border bg-background/95 p-1.5 shadow-lg backdrop-blur">
