@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Camera, Check, ChevronUp, Flame, Lock, Sparkles } from 'lucide-react'
+import { Camera, Check, ChevronUp, Flame, Lock, Sparkles, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PinStatusText } from '@/components/pin-art'
@@ -21,11 +21,14 @@ export function CollectPanel({
   placeName,
   collected,
   onCollect,
+  onTogether,
 }: {
   pin: Pin
   placeName: string
   collected: boolean
   onCollect: () => void
+  // Collect it with someone else who's here: both get the stamp
+  onTogether?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const locked = usePinLocked(pin)
@@ -41,6 +44,7 @@ export function CollectPanel({
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
+  const canTogether = !!onTogether && !collected && !locked && here
   // Collected with bonuses left: the button opens them instead
   const bonusAction = collected && bonuses.length > 0
   const action = (className?: string) =>
@@ -110,6 +114,11 @@ export function CollectPanel({
             </div>
             <ChevronUp className={cn('size-5 shrink-0 text-muted-foreground transition-transform duration-300', open && 'rotate-180')} />
           </button>
+          {!open && canTogether && (
+            <Button size="icon-lg" variant="outline" aria-label="Collect together" className="size-10 shrink-0 rounded-full" onClick={onTogether}>
+              <Users className="size-5" />
+            </Button>
+          )}
           {!open && action()}
         </div>
 
@@ -161,6 +170,12 @@ export function CollectPanel({
               )}
 
               {!collected && action('mt-4 w-full')}
+              {canTogether && (
+                <Button size="lg" variant="outline" className="mt-2 w-full" onClick={onTogether}>
+                  <Users data-icon="inline-start" />
+                  Collect with someone here
+                </Button>
+              )}
             </div>
           </div>
         </div>

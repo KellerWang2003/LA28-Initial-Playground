@@ -15,6 +15,7 @@ import { resetPlans } from '@/lib/plans'
 import { resetSaved } from '@/lib/saved'
 import { resetTickets } from '@/lib/tickets'
 import { resetKeepGoing } from '@/features/activity/keep-going-state'
+import { resetTogether } from '@/features/together/state'
 import { formatTime, pinById, type Pin } from '@/data/la28'
 import { SEED_BONUSES, venueSession, type Bonus, type BonusKind, type GameState } from '@/data/bonuses'
 
@@ -80,6 +81,7 @@ export function resetDemo() {
   resetSaved()
   resetTickets()
   resetKeepGoing()
+  resetTogether()
 }
 
 // ---- Can it be played right now? ----
