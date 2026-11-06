@@ -18,7 +18,6 @@ import { BatonsPage, ChallengesPage, IdPage, PinsPage, TicketsPage } from '@/fea
 import { PinSheet } from '@/features/passport/pin-sheet'
 import { IdEditor, type EditTab } from '@/features/passport/id-editor'
 import { StickerLayer } from '@/features/passport/stickers'
-import { seenFresh, useCoStamps, useFresh } from '@/features/together/state'
 
 // The page the fan left the booklet on, so coming back from a pin or game reopens it there
 let savedPage: number | null = null
@@ -32,8 +31,6 @@ export default function PassportPage() {
   const log = useBatonLog()
   const tickets = useTickets()
   const { balance } = useWallet()
-  const coStamps = useCoStamps()
-  const fresh = useFresh()
   const [pin, setPin] = useState<Pin | null>(null)
   const [baton, setBaton] = useState<LogEntry | null>(null)
   const [ticket, setTicket] = useState<Ticket | null>(null)
@@ -69,9 +66,6 @@ export default function PassportPage() {
             collected={collected}
             customIds={customIds}
             highlight={highlight}
-            coStamps={coStamps}
-            fresh={fresh}
-            onInked={seenFresh}
             // A pin you have opens its photos; one you don't goes to its page to collect it
             onOpen={(p) => (collected.includes(p.id) ? setPin(p) : navigate(`/explore/pins/${p.id}`))}
           />
@@ -111,7 +105,7 @@ export default function PassportPage() {
         />
       )}
 
-      {pin && <PinSheet pin={pin} custom={customIds.includes(pin.id)} coStamp={coStamps[pin.id]} onClose={() => setPin(null)} />}
+      {pin && <PinSheet pin={pin} custom={customIds.includes(pin.id)} onClose={() => setPin(null)} />}
       {/* The log entry gains its recap tonight, so read it fresh */}
       {baton && <BatonEntrySheet entry={log.find((e) => e.id === baton.id) ?? baton} onClose={() => setBaton(null)} />}
       {ticket && (

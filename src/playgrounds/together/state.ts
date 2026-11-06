@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { meetable } from '@/data/mock'
 
 // Collecting a pin together with someone at the spot: who it was, when, and how the stamp
 // landed. Plus two bits of hand-off state for the moment after: the pin flying into the
@@ -111,3 +112,7 @@ export function stampDate(ms: number) {
   const d = new Date(ms)
   return `${d.getDate()} ${d.toLocaleString('en', { month: 'short' }).toUpperCase()} ${d.getFullYear()}`
 }
+
+// The fan at the pin who says yes. Simulated: in the real app, anyone collecting here now.
+export const STRANGER = meetable[0]
+export const PARTNER = { name: STRANGER.name, flag: STRANGER.flag }

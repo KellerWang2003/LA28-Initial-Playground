@@ -12,7 +12,6 @@ import { setDebug, type DebugState } from '@/lib/debug'
 import { debugMoments } from '@/features/crowdplay/schedule'
 import { stageKeepGoing, type KeepStage } from '@/features/activity/keep-going-state'
 import { moveFan } from '@/lib/location'
-import { clearCoStamp, startFlight } from '@/features/together/state'
 import { pinById, placeById } from '@/data/la28'
 import { BONUSES, bonusById, bonusKindTitle, type Bonus, type BonusKind } from '@/data/bonuses'
 
@@ -31,8 +30,6 @@ type Jump = {
   resetBonus?: string
   // Start the after-game hangout at this step
   keep?: KeepStage
-  // Anything else to set up, run last before opening
-  run?: () => void
 }
 
 const ON_TIME: Partial<DebugState> = { time: null, venueGame: 'schedule' }
@@ -50,26 +47,6 @@ const structure: Jump[] = [
     debug: { ...ON_TIME, time: '2028-07-20T19:55' }, at: atPin('p_malibu'), collect: { p_malibu: false }, resetBonus: 'p_malibu_sunset' },
   { title: 'Venue before the game', detail: 'Athletics at the Coliseum · start gun waits for 8:00 PM', to: '/explore/pins/p_coliseum', debug: ON_TIME, at: atPin('p_coliseum'), collect: { p_coliseum: true } },
   { title: 'Passport with marks', detail: 'Bonus counts on the stamps', to: '/passport' },
-]
-
-// Collecting with a stranger at the pin: find them, hold together, one photo, the shared stamp,
-// then the pin flying into the Passport. Griffith has a Together bonus, so the photo earns it too.
-const GRIFFITH = '/explore/pins/p_griffith/together'
-const atGriffith: Pick<Jump, 'debug' | 'at' | 'collect' | 'resetBonus' | 'run'> = {
-  debug: ON_TIME,
-  at: atPin('p_griffith'),
-  collect: { p_griffith: false },
-  resetBonus: 'p_griffith_together',
-  run: () => clearCoStamp('p_griffith'),
-}
-const together: Jump[] = [
-  { title: 'Pin page with Collect together', detail: 'Griffith Observatory · the people button next to I’m here', to: '/explore/pins/p_griffith', ...atGriffith },
-  { title: 'Find someone here', detail: 'Breathing search, Lina turns up, ask to collect together', to: GRIFFITH, ...atGriffith },
-  { title: 'Hold it together', detail: 'Press and hold: rings fill from each side, Lina slips once, halves click', to: `${GRIFFITH}?at=hold`, ...atGriffith },
-  { title: 'Photo countdown', detail: '3, 2, 1 on both phones, then the stamp lands in both Passports', to: `${GRIFFITH}?at=photo`, ...atGriffith },
-  { title: 'Pin flies into the Passport', detail: 'From the middle of the map into the Passport button, which catches it', to: '/explore', debug: ON_TIME,
-    collect: { p_griffith: true }, run: () => startFlight('p_griffith') },
-  { title: 'Co-stamp in the Passport', detail: 'Santa Monica Pier with Kenji · flag on the tile, tap to replay the moment', to: '/passport?pin=p_pier' },
 ]
 
 // The Passport booklet: the cover swings open onto each bookmark
@@ -169,7 +146,6 @@ export default function DevFlowsPage() {
     Object.entries(jump.collect ?? {}).forEach(([id, on]) => setCollected(id, on))
     if (jump.resetBonus) resetBonus(jump.resetBonus)
     if (jump.keep) stageKeepGoing(jump.keep)
-    jump.run?.()
     navigate(jump.to)
   }
 
@@ -186,12 +162,6 @@ export default function DevFlowsPage() {
       <div className="no-scrollbar min-h-0 flex-1 space-y-7 overflow-y-auto overscroll-contain px-4 pt-2 pb-[max(env(safe-area-inset-bottom),24px)]">
         <Section icon={BookOpen} title="Collect and bonus">
           {structure.map((j) => (
-            <JumpRow key={j.title} jump={j} onGo={go} />
-          ))}
-        </Section>
-
-        <Section icon={Users} title="Collect together">
-          {together.map((j) => (
             <JumpRow key={j.title} jump={j} onGo={go} />
           ))}
         </Section>

@@ -187,60 +187,6 @@
     0% { transform: scale(1.6) rotate(-8deg); opacity: 0; }
     100% { transform: scale(1) rotate(-4deg); opacity: 1; }
   }
-  /* Collecting together: a breathing wait, the pin halves clicking shut, the stamp slamming
-     down on both passports with a ripple, the page shaking under it, a reaction floating up,
-     the camera flash, the Passport button catching the pin, and the stamp inking onto its page */
-  --animate-breathe: breathe 2.8s ease-in-out infinite;
-  --animate-pin-snap: pin-snap 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) both;
-  --animate-co-stamp: co-stamp 0.42s cubic-bezier(0.55, 0, 0.75, 0.2) both;
-  --animate-ripple: ripple 0.9s ease-out both;
-  --animate-thud: thud 0.3s ease-out both;
-  --animate-float-up: float-up 1.4s ease-out both;
-  --animate-flash: flash 0.5s ease-out both;
-  --animate-passport-catch: passport-catch 0.6s cubic-bezier(0.3, 1.6, 0.5, 1) both;
-  --animate-ink-in: ink-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  @keyframes breathe {
-    0%, 100% { transform: scale(0.92); opacity: 0.1; }
-    50% { transform: scale(1.04); opacity: 0.03; }
-  }
-  @keyframes pin-snap {
-    0% { transform: scale(1); }
-    35% { transform: scale(1.14) rotate(-3deg); }
-    100% { transform: scale(1) rotate(0); }
-  }
-  @keyframes co-stamp {
-    0% { transform: scale(2.4) rotate(calc(var(--tilt, 0deg) - 14deg)); opacity: 0; }
-    60% { opacity: 1; }
-    100% { transform: scale(1) rotate(var(--tilt, 0deg)); opacity: 1; }
-  }
-  @keyframes ripple {
-    0% { transform: scale(0.6); opacity: 0.5; }
-    100% { transform: scale(2.2); opacity: 0; }
-  }
-  @keyframes thud {
-    0%, 100% { transform: translateY(0); }
-    30% { transform: translateY(3px) scale(0.99); }
-  }
-  @keyframes float-up {
-    0% { transform: translateY(0) scale(0.6); opacity: 0; }
-    15% { transform: translateY(-10px) scale(1.2); opacity: 1; }
-    100% { transform: translateY(-120px) scale(1); opacity: 0; }
-  }
-  @keyframes flash {
-    0% { opacity: 1; }
-    100% { opacity: 0; }
-  }
-  @keyframes passport-catch {
-    0% { transform: scale(1); }
-    30% { transform: scale(0.86) translateY(4px); }
-    65% { transform: scale(1.1) translateY(-6px) rotate(-4deg); }
-    100% { transform: scale(1); }
-  }
-  @keyframes ink-in {
-    0% { transform: scale(1.5) rotate(var(--tilt, 0deg)); opacity: 0; filter: blur(3px); }
-    55% { transform: scale(0.95) rotate(var(--tilt, 0deg)); opacity: 1; filter: blur(0); }
-    100% { transform: scale(1) rotate(var(--tilt, 0deg)); opacity: 1; }
-  }
 }
 
 /* Passport: a page (or the cover) on the spine, lifted from --lift-from to --lift-to

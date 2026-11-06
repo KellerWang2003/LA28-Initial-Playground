@@ -16,7 +16,6 @@ import { CHALLENGES, PIN_VALUE } from '@/data/passport'
 import { BONUS_REWARD, bonusesFor, inWindow, type Bonus } from '@/data/bonuses'
 import { completeBonus, momentMark } from '@/lib/bonuses'
 import { BonusList } from '@/components/bonus-list'
-import { startFlight } from '@/features/together/state'
 import { useClock, usePinLocked } from '@/lib/clock'
 
 type Step = 'camera' | 'making' | 'choose' | 'celebrate' | 'photos' | 'bonus' | 'progress'
@@ -78,12 +77,6 @@ export default function PinCapturePage() {
     )
   }
 
-  // Back to the map, with the new pin flying into the Passport button
-  function toMap() {
-    startFlight(pin!.id)
-    navigate('/explore', { replace: true })
-  }
-
   function keep(useCustom: boolean) {
     collectPin(pin!.id, useCustom)
     addCapturePhoto(pin!.id)
@@ -109,11 +102,11 @@ export default function PinCapturePage() {
       {step === 'photos' && <PhotosStep pin={pin} onContinue={() => setStep('progress')} />}
       {step === 'progress' && (
         <ProgressStep
-          onMap={() => (bonuses.length ? setStep('bonus') : toMap())}
+          onMap={() => (bonuses.length ? setStep('bonus') : navigate('/explore', { replace: true }))}
           onPassport={() => navigate(`/passport?pin=${pin.id}`, { replace: true })}
         />
       )}
-      {step === 'bonus' && <BonusStep bonuses={bonuses} onLater={toMap} />}
+      {step === 'bonus' && <BonusStep bonuses={bonuses} onLater={() => navigate('/explore', { replace: true })} />}
     </Screen>
   )
 }

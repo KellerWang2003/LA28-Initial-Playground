@@ -1,62 +1,46 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Camera, ChevronLeft, Flame, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ShapeSticker } from '@/components/shape-art'
 import { PlacePhoto } from '@/components/place-photo'
-import { collectPin, useCollected } from '@/lib/collected'
-import { addCapturePhoto } from '@/lib/pin-photos'
-import { arriveAt } from '@/lib/location'
-import { nowMs, usePinLocked } from '@/lib/clock'
-import { completeBonus, momentMark } from '@/lib/bonuses'
+import { nowMs } from '@/lib/clock'
 import { useProfile } from '@/lib/profile'
 import { cn } from '@/lib/utils'
-import { flag, PINS, pinById, placeById, type Pin } from '@/data/la28'
-import { meetable } from '@/data/mock'
-import { BONUS_REWARD, bonusesFor, inWindow } from '@/data/bonuses'
+import { flag, placeById, type Pin } from '@/data/la28'
+import { BONUS_REWARD, bonusesFor } from '@/data/bonuses'
 import { PIN_VALUE } from '@/data/passport'
-import { HoldHandshake, type Partner } from '@/features/together/hold-handshake'
-import { CoStampArt } from '@/features/together/co-stamp-art'
-import { addCoStamp, buzz, markFresh, randomTilt, reactCoStamp, stampDate, startFlight, useCoStamps } from '@/features/together/state'
+import { HoldHandshake, type Partner } from './hold-handshake'
+import { CoStampArt } from './co-stamp-art'
+import { PARTNER, STRANGER, addCoStamp, buzz, randomTilt, reactCoStamp, stampDate, useCoStamps } from './state'
 
-type Step = 'find' | 'hold' | 'photo' | 'stamp'
-const STEPS: Step[] = ['find', 'hold', 'photo']
+export type Step = 'find' | 'hold' | 'photo' | 'stamp'
 
-// The fan at the pin who says yes. Simulated: in the real app, anyone collecting here now.
-const STRANGER = meetable[0]
 
 // Collecting a pin with someone you meet there. Find a fan at the same pin, then both hold
 // the pin until the two halves click together, take one photo of you both (that's the photo
-// that collects it), and the stamp lands in both Passports at once. Last, the pin flies
-// into your Passport on the map.
-export default function PinTogetherPage() {
-  const { pinId = '' } = useParams()
-  const [params] = useSearchParams()
-  const navigate = useNavigate()
-  const collected = useCollected()
-  const pin = pinById(pinId)
-  const at = params.get('at') as Step | null
-  const [step, setStep] = useState<Step>(at && STEPS.includes(at) ? at : 'find')
-  // Already in the Passport when this opened: nothing to collect
-  const [had] = useState(() => collected.includes(pinId))
-  const locked = usePinLocked(pin ?? PINS[0])
-  const partner: Partner = { name: STRANGER.name, flag: STRANGER.flag }
-
-  if (!pin || had || locked) return <Navigate to={pin ? `/explore/pins/${pin.id}` : '/explore'} replace />
+// that collects it), and the stamp lands in both Passports at once. Self-contained: it records
+// the co-stamp in this playground's own store and never touches the app's collected pins.
+export function TogetherFlow({
+  pin,
+  start = 'find',
+  onBack,
+  onMap,
+  onPassport,
+}: {
+  pin: Pin
+  start?: Step
+  onBack: () => void
+  // After the stamp: back to the map (the pin flies in), or straight into the Passport
+  onMap: () => void
+  onPassport: () => void
+}) {
+  const [step, setStep] = useState<Step>(start)
+  const partner = PARTNER
   const place = placeById(pin.place)
 
-  // The photo together collects the pin for both of you, and earns the Together bonus here
+  // The photo together collects the pin for both of you
   function collect(photo: boolean) {
-    const p = pin!
-    const now = nowMs()
-    collectPin(p.id)
-    addCapturePhoto(p.id)
-    arriveAt(p.place)
-    bonusesFor(p.id).forEach((b) => {
-      if (b.kind === 'moment' && inWindow(b, now)) completeBonus(b.id, momentMark(b, now))
-      if (b.kind === 'together' && photo) completeBonus(b.id, `With ${partner.name} ${partner.flag}`)
-    })
-    addCoStamp({ pinId: p.id, name: partner.name, flag: partner.flag, at: now, tilt: randomTilt(), photo })
+    addCoStamp({ pinId: pin.id, name: partner.name, flag: partner.flag, at: nowMs(), tilt: randomTilt(), photo })
     setStep('stamp')
   }
 
@@ -64,7 +48,7 @@ export default function PinTogetherPage() {
     <div className="flex h-dvh flex-col bg-background px-4 pt-[env(safe-area-inset-top)] pb-[max(env(safe-area-inset-bottom),16px)]">
       <header className="-mx-2 flex h-14 shrink-0 items-center gap-2">
         {step !== 'stamp' && (
-          <Button variant="outline" size="icon-lg" className="rounded-full" aria-label="Back" onClick={() => navigate(-1)}>
+          <Button variant="outline" size="icon-lg" className="rounded-full" aria-label="Back" onClick={onBack}>
             <ChevronLeft className="size-5" />
           </Button>
         )}
@@ -83,20 +67,7 @@ export default function PinTogetherPage() {
         </>
       )}
       {step === 'photo' && <PhotoStep pin={pin} partner={partner} onTaken={() => collect(true)} onSkip={() => collect(false)} />}
-      {step === 'stamp' && (
-        <StampStep
-          pin={pin}
-          partner={partner}
-          onMap={() => {
-            startFlight(pin.id)
-            navigate('/explore', { replace: true })
-          }}
-          onPassport={() => {
-            markFresh(pin.id)
-            navigate(`/passport?pin=${pin.id}`, { replace: true })
-          }}
-        />
-      )}
+      {step === 'stamp' && <StampStep pin={pin} partner={partner} onMap={onMap} onPassport={onPassport} />}
     </div>
   )
 }

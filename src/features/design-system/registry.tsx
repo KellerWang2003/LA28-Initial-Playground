@@ -18,7 +18,6 @@ import { ActivityAddButton } from '@/components/activity-add-button'
 import { localMinute } from '@/lib/clock'
 import { notify } from '@/lib/toasts'
 import { NOW, type Shape } from '@/data/la28'
-import { CoStampArt, SplitPin } from '@/features/together/co-stamp-art'
 import { Frame, MenuDemo, SearchActionsDemo, SelectDemo, SheetDemo, TabsDemo } from './demos'
 import type { Entry } from './entry'
 
@@ -388,18 +387,6 @@ export const BLOCKS: Entry[] = [
           </div>
         ),
       },
-    ],
-  },
-  {
-    name: 'CoStampArt',
-    file: 'features/together/co-stamp-art',
-    use: 'The stamp for a pin collected with someone: TOGETHER, the pin\u2019s shape, both flags and the day, a little crooked. Thuds in on the collect screen, sits on the pin\u2019s Passport sheet. SplitPin, in the same file, is the pin in two halves, one per person, sliding home as each one holds (the hold-together handshake and its replay).',
-    demos: [
-      { label: 'Resting', node: <CoStampArt shape="telescope" flags={['🇺🇸', '🇲🇽']} date="20 JUL 2028" tilt={-5} className="size-28" /> },
-      { label: 'Small, other tilt', node: <CoStampArt shape="ferris-wheel" flags={['🇺🇸', '🇯🇵']} date="18 JUL 2028" tilt={6} className="size-16" /> },
-      { label: 'SplitPin apart', node: <SplitPin shape="telescope" left={0} right={0} className="size-16" /> },
-      { label: 'SplitPin halfway', node: <SplitPin shape="telescope" left={0.5} right={0.8} className="size-16" /> },
-      { label: 'SplitPin clicked', node: <SplitPin shape="telescope" left={1} right={1} className="size-16" /> },
     ],
   },
   {

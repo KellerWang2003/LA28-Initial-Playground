@@ -175,7 +175,6 @@ export default function PinDetailPage() {
         placeName={place.name}
         collected={done}
         onCollect={() => navigate(`/explore/pins/${pin.id}/capture`)}
-        onTogether={() => navigate(`/explore/pins/${pin.id}/together`)}
       />
     </div>
   )

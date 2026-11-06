@@ -13,7 +13,6 @@ import { cn } from '@/lib/utils'
 import { PINS, flag, sessionById, type Pin } from '@/data/la28'
 import { CHALLENGES, DAILY_RESET, WEEKLY_RESET, challengeDone, pinsIn, type Challenge } from '@/data/passport'
 import { PinTile } from './pin-sheet'
-import type { CoStamp } from '@/features/together/state'
 import { passportLines, type BookPage, type Bookmark } from './book-pages'
 import type { EditTab } from './id-editor'
 import { useLook } from './look'
@@ -211,19 +210,12 @@ export function PinsPage({
   collected,
   customIds,
   highlight,
-  coStamps,
-  fresh,
-  onInked,
   onOpen,
 }: {
   page: Extract<BookPage, { kind: 'pins' }>
   collected: readonly string[]
   customIds: readonly string[]
   highlight: string | null
-  coStamps: Record<string, CoStamp>
-  // Stamped but not seen here yet: they ink in
-  fresh: readonly string[]
-  onInked: (pinId: string) => void
   onOpen: (pin: Pin) => void
 }) {
   const all = pinsIn(page.category.kinds)
@@ -240,9 +232,6 @@ export function PinsPage({
             have={collected.includes(pin.id)}
             custom={customIds.includes(pin.id)}
             highlight={pin.id === highlight}
-            coStamp={coStamps[pin.id]}
-            fresh={fresh.includes(pin.id)}
-            onInked={() => onInked(pin.id)}
             onOpen={() => onOpen(pin)}
           />
         ))}
