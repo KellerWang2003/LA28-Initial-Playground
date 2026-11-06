@@ -9,6 +9,7 @@ import { formatCountdown } from '@/lib/clock'
 import { cn } from '@/lib/utils'
 import { answeredIn, answeredSoFar, resultOf, rightAnswer, roundTorches, TORCHES_PER_ANSWER, TORCHES_PER_ROUND } from './play'
 import { setsFor, type Phase, type PlaySet, type Question } from './schedule'
+import { SideCard, SideNote, TwinCard } from './social-screens'
 
 // The full-screen CrowdPlay screens, one per phase of the schedule. Dark and big, like a game show
 // on a phone: one thing to read, one thing to tap.
@@ -71,10 +72,10 @@ function Dots({ set, current, answers }: { set: PlaySet; current: number; answer
 
 // ---- Waiting for the next round ----
 
-export function Waiting({ ctx, next, left }: { ctx: PlayCtx; next: PlaySet; left: number }) {
+export function Waiting({ ctx, next, left, last }: { ctx: PlayCtx; next: PlaySet; left: number; last?: PlaySet }) {
   return (
-    <div className="flex flex-1 flex-col px-5 pb-6">
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
+    <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-6">
+      <div className="flex flex-1 flex-col items-center justify-center py-6 text-center">
         <p className="text-6xl" aria-hidden>
           {next.emoji}
         </p>
@@ -84,6 +85,10 @@ export function Waiting({ ctx, next, left }: { ctx: PlayCtx; next: PlaySet; left
         <p className="mt-4 text-sm opacity-60 tabular-nums">
           {Math.round(ctx.players * (left < 120 ? 0.9 : 0.55)).toLocaleString()} fans waiting · {next.questions.length} questions
         </p>
+      </div>
+      <div className="mb-3 space-y-3">
+        <SideCard ctx={ctx} />
+        {last && <TwinCard ctx={ctx} set={last} compact />}
       </div>
       <TorchNote />
       <RoundList ctx={ctx} />
@@ -226,7 +231,7 @@ function Tiles({ question, mine, onAnswer }: { question: Question; mine?: string
             onClick={() => onAnswer(o.id)}
             className={cn(
               'relative flex min-h-32 flex-col items-center justify-center gap-1.5 rounded-3xl p-3 text-center font-semibold transition-all active:scale-95',
-              picked ? 'bg-background text-foreground' : 'bg-background/10',
+              picked ? 'animate-pin-pop bg-background text-foreground' : 'bg-background/10',
               locked && !picked && 'opacity-30',
               options.length === 2 && 'min-h-44',
             )}
@@ -303,6 +308,7 @@ export function ResultScreen({ ctx, question, left, last }: { ctx: PlayCtx; ques
       <div className="my-auto py-4">
         <p className="text-sm opacity-60">{question.title}</p>
         {question.kind === 'pin-map' ? <MapResult dist={dist} mine={mine} /> : <ChoiceResult question={question} dist={dist} mine={mine} />}
+        {question.kind === 'predict' && mine !== undefined && <SideNote ctx={ctx} />}
       </div>
       <p className="pt-2 text-center text-sm tabular-nums opacity-60">
         {last ? 'Round wraps up' : 'Next question'} in {left}
@@ -401,8 +407,8 @@ export function Done({ ctx, set, next }: { ctx: PlayCtx; set: PlaySet; next?: Pl
   const n = answeredIn(set, ctx.answers)
   const torches = roundTorches(set, ctx.answers)
   return (
-    <div className="flex flex-1 flex-col px-5 pb-6">
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
+    <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-6">
+      <div className="flex flex-1 flex-col items-center justify-center py-4 text-center">
         <p className="text-6xl" aria-hidden>
           {n ? '🎉' : set.emoji}
         </p>
@@ -420,6 +426,9 @@ export function Done({ ctx, set, next }: { ctx: PlayCtx; set: PlaySet; next?: Pl
             Next: {next.title} at {clockOf(next.start)} · in {formatCountdown(Math.max(0, Math.ceil((next.start - ctx.now) / 1000)))}
           </p>
         )}
+      </div>
+      <div className="mb-3">
+        <TwinCard ctx={ctx} set={set} />
       </div>
       <button type="button" onClick={ctx.onClose} className="h-14 rounded-full bg-background font-semibold text-foreground">
         Back to the game

@@ -384,6 +384,8 @@ export const PINS: Pin[] = [
   { id: 'p_medalnight', name: 'Medal Concert Pin', place: 'grandpark', kind: 'event', shape: 'concert', rarity: 'Epic', status: 'locked', label: 'Unlocks Tue at 7:30 PM', short: 'Tue', opensAt: '2028-07-25T19:30', onMap: false },
   { id: 'p_langpicnic', name: 'Language Swap Pin', place: 'echolake', kind: 'event', shape: 'languages', rarity: 'Common', status: 'locked', label: 'Unlocks Mon at 11:00 AM', short: 'Mon', opensAt: '2028-07-24T11:00', onMap: false },
   { id: 'p_sunrise', name: 'Sunrise Run Pin', place: 'smpier', kind: 'event', shape: 'running', rarity: 'Rare', status: 'locked', label: 'Unlocks Sat at 6:30 AM', short: 'Sat', opensAt: '2028-07-22T06:30', onMap: false },
+  // Earned with your after-game group: one photo together at the place you voted for
+  { id: 'p_nightout', name: 'Night Out After Swimming Pin', place: 'sofi', kind: 'event', shape: 'party', rarity: 'Rare', status: 'open', label: 'With your group after the game', short: 'Tonight', onMap: false },
   { id: 'p_afterparty', name: 'Swim Final After-Hangout Pin', place: 'sofi', kind: 'event', shape: 'party', rarity: 'Common', status: 'locked', label: 'Unlocks at 9:30 PM', short: '9:30 PM', opensAt: '2028-07-20T21:30', onMap: false },
 
   // Venues: earned at the game, not shown on the map

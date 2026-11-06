@@ -17,6 +17,7 @@ import EventsPage from '@/pages/events'
 import EventCreatePage from '@/pages/event-create'
 import MyActivitiesPage from '@/pages/my-activities'
 import KeepGoingPage from '@/pages/keep-going'
+import HangoutPage from '@/pages/hangout'
 import SportsPage from '@/pages/sports'
 import GameRoomPage from '@/pages/game-room'
 import SavedPage from '@/pages/saved'
@@ -67,6 +68,7 @@ function App() {
       <Route path="sports/games/:sessionId/play" element={<CrowdPlayPage />} />
       <Route path="events/create" element={<EventCreatePage />} />
       <Route path="events/keep-going" element={<KeepGoingPage />} />
+      <Route path="events/keep-going/meet" element={<HangoutPage />} />
       <Route path="events/mine" element={<MyActivitiesPage />} />
       <Route path="events/:eventId" element={<EventDetail />} />
       <Route path="places/:placeId" element={<PlaceDetail />} />

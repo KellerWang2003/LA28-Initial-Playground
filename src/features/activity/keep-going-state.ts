@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { nowMs, useClock } from '@/lib/clock'
 import { gameFor, getMyGames, useMyGames } from '@/lib/my-games'
 import { notify } from '@/lib/toasts'
+import { getSocial } from '@/features/crowdplay/social'
 import {
   GROUPS,
   groupById,
@@ -98,8 +99,12 @@ export const fitsWant = (s: KeepState, g: Group) =>
   (!s.want.vibe || g.vibe === s.want.vibe) && (!s.want.language || g.languages.includes(s.want.language))
 
 // A group that fits what you asked for comes first. If none is left, any group you haven't passed.
+// Among those, a group with someone you found or waved at during CrowdPlay goes first.
 export function nextOffer(s: KeepState) {
-  const left = GROUPS.filter((g) => !s.passed.includes(g.id))
+  const social = getSocial()
+  const met = [...social.found, ...social.waved]
+  const rank = (g: Group) => (g.members.some((m) => met.includes(m.id)) ? 0 : 1)
+  const left = GROUPS.filter((g) => !s.passed.includes(g.id)).sort((a, b) => rank(a) - rank(b))
   return left.find((g) => fitsWant(s, g)) ?? left[0]
 }
 

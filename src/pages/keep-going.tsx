@@ -10,6 +10,8 @@ import { formatCountdown, useClock } from '@/lib/clock'
 import { addConnection, useConnections } from '@/lib/connections'
 import { notify } from '@/lib/toasts'
 import { useProfile } from '@/lib/profile'
+import { CommonGround } from '@/features/hangout/screens'
+import { useSocial } from '@/features/crowdplay/social'
 import {
   countryFlags,
   countryName,
@@ -317,6 +319,9 @@ function Offer({ group }: { group: Group }) {
         <p className="mt-2 text-sm text-muted-foreground">{group.blurb}</p>
       </div>
 
+      <TwinNote group={group} />
+      <CommonGround group={group} />
+
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-2xl bg-card p-3">
           <p className="text-xs text-muted-foreground">From</p>
@@ -333,6 +338,25 @@ function Offer({ group }: { group: Group }) {
         <MemberList members={group.members} />
       </section>
     </div>
+  )
+}
+
+// Someone you found or waved at during CrowdPlay is in this group
+function TwinNote({ group }: { group: Group }) {
+  const social = useSocial()
+  const twin = group.members.find((m) => social.found.includes(m.id) || social.waved.includes(m.id))
+  if (!twin) return null
+  const found = social.found.includes(twin.id)
+  return (
+    <section className="flex items-center gap-3 rounded-2xl bg-foreground px-4 py-3 text-background">
+      <span className="text-2xl" aria-hidden>
+        {flag(twin.cc)}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{twin.name}, your crowd twin, is in this group</span>
+        <span className="block text-xs opacity-70">{found ? 'You found each other during the game.' : 'You waved during CrowdPlay.'}</span>
+      </span>
+    </section>
   )
 }
 
@@ -469,10 +493,13 @@ function Decision({ group, spot, total }: { group: Group; spot: TallySpot; total
         <p className="mt-1 text-sm text-muted-foreground">
           {spot.walk} from SoFi. {spot.note}
         </p>
+        <Button type="button" className="mt-4 w-full" nativeButton={false} render={<Link to="/events/keep-going/meet" />}>
+          Head over together
+        </Button>
         <Button
           type="button"
-          variant="outline"
-          className="mt-4 w-full"
+          variant="ghost"
+          className="mt-2 w-full"
           onClick={() =>
             notify({ title: 'Sent to Priya', body: `${spot.name}, ${spot.walk} from SoFi. ${total} people going.` })
           }

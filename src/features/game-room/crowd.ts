@@ -131,6 +131,9 @@ export function useAllAnswers(): Record<string, { answers: Record<string, string
   return useSyncExternalStore(subscribe, () => rooms)
 }
 
+/** For event handlers and the app-root tick */
+export const getMyAnswers = (sessionId: string) => roomOf(sessionId).answers
+
 export function setMyAnswer(sessionId: string, roundId: string, value: string) {
   update(sessionId, (room) => ({ ...room, answers: { ...room.answers, [roundId]: value } }))
 }

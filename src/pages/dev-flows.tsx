@@ -11,6 +11,9 @@ import { localMinute } from '@/lib/clock'
 import { setDebug, type DebugState } from '@/lib/debug'
 import { debugMoments } from '@/features/crowdplay/schedule'
 import { stageKeepGoing, type KeepStage } from '@/features/activity/keep-going-state'
+import { stageHangout, seedCrowdPlayAnswers, type HangoutJump } from '@/features/hangout/state'
+import { resetSocial } from '@/features/crowdplay/social'
+import { setMyAnswer } from '@/features/game-room/crowd'
 import { moveFan } from '@/lib/location'
 import { pinById, placeById } from '@/data/la28'
 import { BONUSES, bonusById, bonusKindTitle, type Bonus, type BonusKind } from '@/data/bonuses'
@@ -30,6 +33,12 @@ type Jump = {
   resetBonus?: string
   // Start the after-game hangout at this step
   keep?: KeepStage
+  // CrowdPlay answers to have given already (in the swim final), so twins and sides have something to go on
+  answers?: Record<string, string>
+  // Seed the usual CrowdPlay answers, for the group's common ground
+  seedAnswers?: boolean
+  // Start the walk over / the table / the stamp, with the vote decided
+  hangout?: HangoutJump
 }
 
 const ON_TIME: Partial<DebugState> = { time: null, venueGame: 'schedule' }
@@ -63,6 +72,14 @@ const SWIM = '/sports/games/s_swim_0720'
 const crowdplay: Jump[] = [
   { title: 'Game page with the CrowdPlay button', detail: 'Live stats, the button counts down to the next round', to: SWIM, debug: { ...ON_TIME, time: '2028-07-20T19:19:40' } },
   ...debugMoments('s_swim_0720').map((m) => ({ title: m.label, detail: 'Who’s here round · full screen', to: `${SWIM}/play`, debug: { ...ON_TIME, time: m.time } })),
+  { title: 'Crowd twin after a round', detail: 'Who’s here is done · the fan who answered most like you, wave or find each other', to: `${SWIM}/play`,
+    debug: { ...ON_TIME, time: '2028-07-20T19:22:06' }, answers: { r_origin: 'USA', r_thisorthat: 'coffee', r_clock: 'evening' } },
+  { title: 'Your side, before the race', detail: 'You picked Great Britain · your side and the race countdown', to: `${SWIM}/play`,
+    debug: { ...ON_TIME, time: '2028-07-20T19:27:00' }, answers: { r_predict_200: 'GBR', r_lengths: '4', r_fastest: 'free' } },
+  { title: 'Hold to cheer during the race', detail: '7:28 PM · press and hold with your side', to: `${SWIM}/play`,
+    debug: { ...ON_TIME, time: '2028-07-20T19:28:30' }, answers: { r_predict_200: 'GBR', r_lengths: '4', r_fastest: 'free' } },
+  { title: 'You called it', detail: 'Race over · the alert and your side’s moment', to: `${SWIM}/play`,
+    debug: { ...ON_TIME, time: '2028-07-20T19:29:50' }, answers: { r_predict_200: 'GBR', r_lengths: '4', r_fastest: 'free' } },
   { title: 'Recap with who was here', detail: 'Your answers, Torches and the crowd, after the game', to: `${SWIM}/recap`, debug: { ...ON_TIME, time: '2028-07-20T20:50' } },
 ]
 
@@ -81,9 +98,14 @@ const keepGoing: Jump[] = [
   { title: 'Prompt before the end', detail: '8:26 PM · the alert, then the question under the swimming card', to: '/events', debug: AFTER_SWIM, keep: 'ask' },
   { title: 'Matching', detail: 'Waiting for a group, with the option to host', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'matching' },
   { title: 'Matched with a group', detail: 'Who’s going, where they’re from, what they speak · join or pass', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'offer' },
+  { title: 'Matched, with what you have in common', detail: 'After playing CrowdPlay · shared answers on the offer', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'offer', seedAnswers: true },
   { title: 'Group voting on a place', detail: 'The vote closes 10 minutes after you join', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'voting' },
   { title: 'Hosting', detail: 'People join one at a time, then vote', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'hosting' },
   { title: 'Vote closed', detail: 'The plan, and the person you got talking to', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'decided' },
+  { title: 'Head over together', detail: 'Everyone’s dot heads to the bar · the group’s shape for the door', to: '/events/keep-going/meet', debug: AFTER_SWIM, hangout: 'walking' },
+  { title: 'Arrived at the spot', detail: 'Close enough for I’m here', to: '/events/keep-going/meet', debug: AFTER_SWIM, hangout: 'arrived' },
+  { title: 'At the table', detail: 'How the table answered CrowdPlay · the group photo', to: '/events/keep-going/meet', debug: AFTER_SWIM, hangout: 'table' },
+  { title: 'Night Out stamp', detail: 'The pin in the Passport, then add who you were with', to: '/events/keep-going/meet', debug: AFTER_SWIM, hangout: 'stamped' },
 ]
 
 // 'YYYY-MM-DDTHH:MM' a few minutes after `iso`, in local time like the mock data
@@ -146,6 +168,12 @@ export default function DevFlowsPage() {
     Object.entries(jump.collect ?? {}).forEach(([id, on]) => setCollected(id, on))
     if (jump.resetBonus) resetBonus(jump.resetBonus)
     if (jump.keep) stageKeepGoing(jump.keep)
+    if (jump.answers) {
+      resetSocial()
+      Object.entries(jump.answers).forEach(([q, v]) => setMyAnswer('s_swim_0720', q, v))
+    }
+    if (jump.seedAnswers) seedCrowdPlayAnswers('s_swim_0720')
+    if (jump.hangout) stageHangout(jump.hangout, 's_swim_0720')
     navigate(jump.to)
   }
 

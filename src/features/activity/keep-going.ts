@@ -57,6 +57,9 @@ export type Spot = {
   kind: string
   walk: string
   note: string
+  // Near SoFi, for the walk over
+  lat: number
+  lng: number
 }
 
 export const SPOTS: Spot[] = [
@@ -66,6 +69,8 @@ export const SPOTS: Spot[] = [
     kind: 'Taco truck',
     walk: '6 min walk',
     note: 'Open late, with a few tables on the sidewalk.',
+    lat: 33.9488,
+    lng: -118.3437,
   },
   {
     id: 'cafe',
@@ -73,6 +78,8 @@ export const SPOTS: Spot[] = [
     kind: 'Café',
     walk: '8 min walk',
     note: 'Quiet enough to actually talk.',
+    lat: 33.9459,
+    lng: -118.3335,
   },
   {
     id: 'bar',
@@ -80,6 +87,8 @@ export const SPOTS: Spot[] = [
     kind: 'Sports bar',
     walk: '11 min walk',
     note: 'Screens still on. Public, and it fits a group this size.',
+    lat: 33.9612,
+    lng: -118.3466,
   },
 ]
 

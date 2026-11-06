@@ -34,7 +34,7 @@ export default function CrowdPlayPage() {
     <div className="flex h-dvh flex-col bg-foreground pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-background">
       <TopBar ctx={ctx} phase={phase} />
       {phase.kind === 'waiting' ? (
-        <Waiting ctx={ctx} next={phase.next} left={phase.left} />
+        <Waiting ctx={ctx} next={phase.next} left={phase.left} last={phase.last} />
       ) : phase.kind === 'intro' ? (
         <Intro set={phase.set} left={phase.left} />
       ) : phase.kind === 'question' ? (

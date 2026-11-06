@@ -183,6 +183,13 @@
     0% { transform: translateY(-60vh) rotate(-45deg); }
     100% { transform: translateY(0) rotate(0deg); }
   }
+  /* CrowdPlay: cheer emoji float up and fade */
+  --animate-float-up: float-up 1.4s ease-out both;
+  @keyframes float-up {
+    0% { transform: translateY(0) scale(0.6); opacity: 0; }
+    15% { opacity: 1; transform: translateY(-10px) scale(1.1); }
+    100% { transform: translateY(-110px) scale(0.9); opacity: 0; }
+  }
   @keyframes stamp-in {
     0% { transform: scale(1.6) rotate(-8deg); opacity: 0; }
     100% { transform: scale(1) rotate(-4deg); opacity: 1; }
