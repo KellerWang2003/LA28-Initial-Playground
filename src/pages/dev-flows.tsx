@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { BookMarked, BookOpen, Bookmark, ChevronLeft, ChevronRight, RotateCcw, Sparkles, Users, type LucideIcon } from 'lucide-react'
+import { BookMarked, BookOpen, Bookmark, CalendarClock, ChevronLeft, ChevronRight, RotateCcw, Sparkles, Tv, Users, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DebugControls } from '@/components/debug-panel'
 import { BatonDebugControls } from '@/components/baton-debug'
@@ -12,6 +12,7 @@ import { setDebug, type DebugState } from '@/lib/debug'
 import { debugMoments } from '@/features/crowdplay/schedule'
 import { stageKeepGoing, type KeepStage } from '@/features/activity/keep-going-state'
 import { moveFan } from '@/lib/location'
+import { stageWatchParty, type WatchStep } from '@/features/watch-party/state'
 import { pinById, placeById } from '@/data/la28'
 import { BONUSES, bonusById, bonusKindTitle, type Bonus, type BonusKind } from '@/data/bonuses'
 
@@ -30,6 +31,8 @@ type Jump = {
   resetBonus?: string
   // Start the after-game hangout at this step
   keep?: KeepStage
+  // Put the fan at a step of a watch party
+  watch?: { event: string; step: WatchStep }
 }
 
 const ON_TIME: Partial<DebugState> = { time: null, venueGame: 'schedule' }
@@ -84,6 +87,28 @@ const keepGoing: Jump[] = [
   { title: 'Group voting on a place', detail: 'The vote closes 10 minutes after you join', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'voting' },
   { title: 'Hosting', detail: 'People join one at a time, then vote', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'hosting' },
   { title: 'Vote closed', detail: 'The plan, and the person you got talking to', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'decided' },
+]
+
+// Tonight's Brazil vs Morocco watch party at Grand Central Market: find it, take a
+// seat, arrive and check in, hold up the card, then the group pose and its stamp
+const BRAMAR = 'e_watch_bramar'
+const watchParty: Jump[] = [
+  { title: 'Find it on the map', detail: 'Watch parties filter, the card for tonight’s party', to: `/explore?item=${BRAMAR}`, debug: ON_TIME, at: null, watch: { event: BRAMAR, step: 'browsing' } },
+  { title: 'Preview and take a seat', detail: 'Seats with flags, the side split, tap an empty seat to join', to: `/events/${BRAMAR}`, debug: ON_TIME, at: null, watch: { event: BRAMAR, step: 'browsing' } },
+  { title: 'On the way', detail: '7:50 PM · seat taken, walk time and doors countdown', to: `/events/${BRAMAR}`, debug: { ...ON_TIME, time: '2028-07-20T19:50' }, at: null, watch: { event: BRAMAR, step: 'joined' } },
+  { title: 'Arrived, check in', detail: '7:50 PM at the market · Check in opens the hold-up card', to: `/events/${BRAMAR}`, debug: { ...ON_TIME, time: '2028-07-20T19:50' }, at: 'gcm', watch: { event: BRAMAR, step: 'joined' } },
+  { title: 'Checked in, game on', detail: '8:40 PM · live score, seats light up as fans arrive, group pose collects the pin', to: `/events/${BRAMAR}`,
+    debug: { ...ON_TIME, time: '2028-07-20T20:40' }, at: 'gcm', watch: { event: BRAMAR, step: 'checked-in' }, collect: { p_watch_bramar: false } },
+  { title: 'Pin collected, crowd stamp', detail: 'The stamp ringed by everyone’s flags', to: `/events/${BRAMAR}`,
+    debug: { ...ON_TIME, time: '2028-07-20T21:30' }, at: 'gcm', watch: { event: BRAMAR, step: 'checked-in' }, collect: { p_watch_bramar: true } },
+  { title: 'The stamp in the Passport', detail: 'Pin sheet with who you watched with', to: '/passport?pin=p_watch_bramar', collect: { p_watch_bramar: true } },
+]
+
+// A ticket turned into a day: planned stops, free time with things that fit, leave by, the game
+const dayPlan: Jump[] = [
+  { title: 'Scan a ticket', detail: 'Tap + on Activities, Add a ticket, then Plan my day around it', to: '/events', debug: ON_TIME },
+  { title: 'Day around Nigeria vs Spain', detail: 'Sun · your dumpling picnic, the pin swap and pre-game dinner fit the gap', to: '/events/day/s_bball_0723', debug: ON_TIME },
+  { title: 'Today, with a now line', detail: '3:00 PM · athletics tonight at the Coliseum, leave by and what fits before', to: '/events/day/s_athl_0720', debug: { ...ON_TIME, time: '2028-07-20T15:00' } },
 ]
 
 // 'YYYY-MM-DDTHH:MM' a few minutes after `iso`, in local time like the mock data
@@ -146,6 +171,7 @@ export default function DevFlowsPage() {
     Object.entries(jump.collect ?? {}).forEach(([id, on]) => setCollected(id, on))
     if (jump.resetBonus) resetBonus(jump.resetBonus)
     if (jump.keep) stageKeepGoing(jump.keep)
+    if (jump.watch) stageWatchParty(jump.watch.event, jump.watch.step)
     navigate(jump.to)
   }
 
@@ -174,6 +200,18 @@ export default function DevFlowsPage() {
 
         <Section icon={Bookmark} title="Activities and saved">
           {activities.map((j) => (
+            <JumpRow key={j.title} jump={j} onGo={go} />
+          ))}
+        </Section>
+
+        <Section icon={Tv} title="Watch party">
+          {watchParty.map((j) => (
+            <JumpRow key={j.title} jump={j} onGo={go} />
+          ))}
+        </Section>
+
+        <Section icon={CalendarClock} title="Ticket to day plan">
+          {dayPlan.map((j) => (
             <JumpRow key={j.title} jump={j} onGo={go} />
           ))}
         </Section>

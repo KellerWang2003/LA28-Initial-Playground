@@ -314,7 +314,19 @@ export function TicketScanSheet({
             </div>
 
             <div className="flex flex-col gap-2 pt-2">
+              {/* The ticket becomes a plan: free time, when to leave, and what fits around the game */}
               <Button
+                className="w-full rounded-full"
+                onClick={() => {
+                  onClose()
+                  navigate(`/events/day/${selectedSession.id}`)
+                }}
+              >
+                Plan my day around it
+                <ChevronRight data-icon="inline-end" />
+              </Button>
+              <Button
+                variant="outline"
                 className="w-full rounded-full"
                 onClick={() => {
                   onClose()
@@ -322,10 +334,9 @@ export function TicketScanSheet({
                 }}
               >
                 View in Passport
-                <ChevronRight data-icon="inline-end" />
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 className="w-full rounded-full"
                 onClick={onClose}
               >

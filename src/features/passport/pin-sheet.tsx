@@ -11,6 +11,7 @@ import { usePinPhotos } from '@/lib/pin-photos'
 import { cn } from '@/lib/utils'
 import { bonusesFor } from '@/data/bonuses'
 import { placeById, type Pin } from '@/data/la28'
+import { CrowdStampForPin } from '@/features/watch-party/crowd-stamp'
 
 export function PinTile({
   pin,
@@ -103,6 +104,8 @@ export function PinSheet({ pin, custom, onClose }: { pin: Pin; custom: boolean; 
           </Button>
         </header>
         <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-[max(env(safe-area-inset-bottom),16px)]">
+          {/* A watch party's stamp keeps the flags of who was there */}
+          <CrowdStampForPin pinId={pin.id} />
           <div className="mb-2 flex items-baseline justify-between">
             <h3 className="text-sm font-semibold">Your photos and videos</h3>
             <span className="text-sm text-muted-foreground tabular-nums">{photos.length}</span>

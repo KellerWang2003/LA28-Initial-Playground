@@ -30,6 +30,9 @@ import PeopleAddPage from '@/pages/people-add'
 import MyCodePage from '@/pages/my-code'
 import PersonPage from '@/pages/person'
 import SearchPage from '@/pages/search'
+import WatchPartyPage from '@/pages/watch-party'
+import DayPlanPage from '@/pages/day-plan'
+import { watchPartyById } from '@/features/watch-party/crowd'
 import { chats, personById } from '@/data/mock'
 import { eventById, placeById } from '@/data/la28'
 
@@ -68,6 +71,7 @@ function App() {
       <Route path="events/create" element={<EventCreatePage />} />
       <Route path="events/keep-going" element={<KeepGoingPage />} />
       <Route path="events/mine" element={<MyActivitiesPage />} />
+      <Route path="events/day/:sessionId" element={<DayPlanPage />} />
       <Route path="events/:eventId" element={<EventDetail />} />
       <Route path="places/:placeId" element={<PlaceDetail />} />
       <Route path="search" element={<SearchPage />} />
@@ -95,6 +99,9 @@ function App() {
 function EventDetail() {
   const { eventId = '' } = useParams()
   const event = eventById(eventId)
+  // Fan-hosted watch parties have their own page
+  const party = watchPartyById(eventId)
+  if (party) return <WatchPartyPage key={eventId} party={party} />
   // Not designed yet, but saving to a list lives here
   return <EmptyScreen title={event?.title ?? 'Event'} action={event && <SaveButton item={{ kind: 'event', id: event.id }} header />} />
 }

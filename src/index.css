@@ -187,6 +187,13 @@
     0% { transform: scale(1.6) rotate(-8deg); opacity: 0; }
     100% { transform: scale(1) rotate(-4deg); opacity: 1; }
   }
+  /* Watch party: your flag drops into the seat you took */
+  --animate-seat-drop: seat-drop 0.6s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+  @keyframes seat-drop {
+    0% { transform: translateY(-28px) scale(0.6); opacity: 0; }
+    60% { transform: translateY(2px) scale(1.08); opacity: 1; }
+    100% { transform: translateY(0) scale(1); }
+  }
 }
 
 /* Passport: a page (or the cover) on the spine, lifted from --lift-from to --lift-to

@@ -222,6 +222,7 @@ export const EVENTS: GameEvent[] = [
   { id: 'e_boardwalk3x3', type: 'sponsored', title: '3x3 pickup tournament', place: 'venice', date: '2028-07-23', time: '10:00', going: 240, sponsor: 'Presented by a sponsor', why: 'You follow basketball' },
 
   // Fan-hosted
+  { id: 'e_watch_bramar', type: 'fan', watch: 's_fb_m_0720', title: 'Brazil vs Morocco watch party', place: 'gcm', date: '2028-07-20', time: '20:00', host: { name: 'Yasmine', cc: 'MA' }, spots: [11, 14], task: 'Group pose', pin: 'p_watch_bramar', why: 'For a game on your Watch list' },
   { id: 'e_watch_fb', type: 'fan', watch: 's_fb_0722', title: 'Brazil vs Japan watch party', place: 'sol', date: '2028-07-22', time: '13:30', host: { name: 'Tomás', cc: 'CO' }, spots: [9, 16], task: 'Group pose', pin: 'p_sol', why: 'Tomás from your crew is hosting' },
   { id: 'e_dumplings', type: 'fan', title: 'Badminton and dumplings', place: 'almansor', date: '2028-07-23', time: '12:00', host: { name: 'Mei', cc: 'CN' }, spots: [6, 10], task: 'Synced twist', pin: null, why: 'You are hosting' },
   { id: 'e_pinswap', type: 'fan', title: 'Pin swap afternoon', place: 'lantern', date: '2028-07-23', time: '15:00', host: { name: 'Aiko', cc: 'JP' }, spots: [6, 10], task: 'Pass the beat', pin: 'p_lantern', why: '2 people you met are going' },
@@ -384,6 +385,7 @@ export const PINS: Pin[] = [
   { id: 'p_medalnight', name: 'Medal Concert Pin', place: 'grandpark', kind: 'event', shape: 'concert', rarity: 'Epic', status: 'locked', label: 'Unlocks Tue at 7:30 PM', short: 'Tue', opensAt: '2028-07-25T19:30', onMap: false },
   { id: 'p_langpicnic', name: 'Language Swap Pin', place: 'echolake', kind: 'event', shape: 'languages', rarity: 'Common', status: 'locked', label: 'Unlocks Mon at 11:00 AM', short: 'Mon', opensAt: '2028-07-24T11:00', onMap: false },
   { id: 'p_sunrise', name: 'Sunrise Run Pin', place: 'smpier', kind: 'event', shape: 'running', rarity: 'Rare', status: 'locked', label: 'Unlocks Sat at 6:30 AM', short: 'Sat', opensAt: '2028-07-22T06:30', onMap: false },
+  { id: 'p_watch_bramar', name: 'Brazil vs Morocco Watch Party Pin', place: 'gcm', kind: 'event', shape: 'tv', rarity: 'Rare', status: 'locked', label: 'Unlocks when it starts at 8:00 PM', short: '8:00 PM', opensAt: '2028-07-20T20:00', onMap: false },
   { id: 'p_afterparty', name: 'Swim Final After-Hangout Pin', place: 'sofi', kind: 'event', shape: 'party', rarity: 'Common', status: 'locked', label: 'Unlocks at 9:30 PM', short: '9:30 PM', opensAt: '2028-07-20T21:30', onMap: false },
 
   // Venues: earned at the game, not shown on the map
@@ -484,6 +486,7 @@ export const EVENT_SHAPE: Record<string, Shape> = {
   e_sunrise: 'running',
   e_boardwalk3x3: 'basketball',
   e_watch_fb: 'tv',
+  e_watch_bramar: 'tv',
   e_dumplings: 'dumplings',
   e_pinswap: 'swap',
   e_kbbq: 'grill',

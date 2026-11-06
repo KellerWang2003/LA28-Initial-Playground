@@ -15,6 +15,8 @@ import { resetPlans } from '@/lib/plans'
 import { resetSaved } from '@/lib/saved'
 import { resetTickets } from '@/lib/tickets'
 import { resetKeepGoing } from '@/features/activity/keep-going-state'
+import { resetWatchParties } from '@/features/watch-party/state'
+import { resetDayPlan } from '@/features/day-plan/plan'
 import { formatTime, pinById, type Pin } from '@/data/la28'
 import { SEED_BONUSES, venueSession, type Bonus, type BonusKind, type GameState } from '@/data/bonuses'
 
@@ -80,6 +82,8 @@ export function resetDemo() {
   resetSaved()
   resetTickets()
   resetKeepGoing()
+  resetWatchParties()
+  resetDayPlan()
 }
 
 // ---- Can it be played right now? ----
