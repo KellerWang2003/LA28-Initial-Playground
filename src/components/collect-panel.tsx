@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Camera, Check, ChevronUp, Flame, Lock, Sparkles } from 'lucide-react'
+import { useNavigate } from 'react-router'
+import { Camera, Check, ChevronUp, Flame, Footprints, Lock, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PinStatusText } from '@/components/pin-art'
@@ -28,6 +29,7 @@ export function CollectPanel({
   onCollect: () => void
 }) {
   const [open, setOpen] = useState(false)
+  const navigate = useNavigate()
   const locked = usePinLocked(pin)
   const here = useAtPlace(pin.place)
   const marks = useBonusMarks()
@@ -43,14 +45,21 @@ export function CollectPanel({
 
   // Collected with bonuses left: the button opens them instead
   const bonusAction = collected && bonuses.length > 0
+  // Not there yet: head there, and get matched with fans going the same way
+  const onMyWay = !collected && !locked && !here
   const action = (className?: string) =>
-    bonusAction ? (
+    onMyWay ? (
+      <Button size="lg" onClick={() => navigate(`/explore/pins/${pin.id}/on-my-way`)} className={cn('shrink-0', className)}>
+        <Footprints data-icon="inline-start" />
+        On my way
+      </Button>
+    ) : bonusAction ? (
       <Button size="lg" onClick={() => setOpen(true)} className={cn('shrink-0', className)}>
         <Sparkles data-icon="inline-start" />
         Bonus
       </Button>
     ) : (
-      <Button size="lg" disabled={collected || locked || !here} onClick={onCollect} className={cn('shrink-0 tabular-nums', className)}>
+      <Button size="lg" disabled={collected || locked} onClick={onCollect} className={cn('shrink-0 tabular-nums', className)}>
         {collected ? (
           <>
             <Check data-icon="inline-start" />
@@ -61,8 +70,6 @@ export function CollectPanel({
             <Lock data-icon="inline-start" />
             <PinStatusText pin={pin} />
           </>
-        ) : !here ? (
-          'Not here yet'
         ) : (
           'I’m here'
         )}

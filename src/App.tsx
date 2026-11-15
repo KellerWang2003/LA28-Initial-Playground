@@ -5,6 +5,7 @@ import { EmptyScreen } from '@/components/empty-screen'
 import { SaveButton } from '@/components/save-sheet'
 import ExplorePage from '@/pages/explore'
 import PinCapturePage from '@/pages/pin-capture'
+import OnMyWayPage from '@/pages/on-my-way'
 import PinDetailPage from '@/pages/pin-detail'
 import BonusPage from '@/pages/bonus'
 import DevFlowsPage from '@/pages/dev-flows'
@@ -54,6 +55,7 @@ function App() {
       {/* Pushed screens */}
       <Route path="explore/pins/:pinId" element={<PinDetailPage />} />
       <Route path="explore/pins/:pinId/capture" element={<PinCapturePage />} />
+      <Route path="explore/pins/:pinId/on-my-way" element={<OnMyWayPage />} />
       <Route path="explore/pins/:pinId/bonus/:bonusId" element={<BonusPage />} />
       <Route path="passport" element={<PassportPage />} />
       <Route path="passport/store" element={<PassportStorePage />} />
