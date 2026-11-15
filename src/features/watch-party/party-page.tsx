@@ -85,24 +85,38 @@ export function PartyPage({ party }: { party: Party }) {
         )}
 
         <div className={cn('space-y-8 px-4', here ? 'pt-2' : 'pt-6')}>
-          {/* The game, doors, and how many are going, in one slim row */}
-          <div className="flex h-14 items-center justify-between rounded-2xl bg-card px-2 text-base font-semibold whitespace-nowrap tabular-nums">
-            <span className={cn('flex h-10 items-center gap-1.5 rounded-full px-3', match && 'bg-foreground text-background')}>
-              <span className="text-xl leading-none">
-                {flag(GAME.home)}
-                {flag(GAME.away)}
+          {/* Before: the game, doors and how many are going in one slim row. Once you're there,
+              that row becomes the live scoreboard. */}
+          {here && match ? (
+            <div className="grid h-32 grid-cols-[1fr_auto_1fr] items-center rounded-3xl bg-foreground px-4 text-background tabular-nums">
+              <span className="justify-self-center text-6xl leading-none">{flag(GAME.home)}</span>
+              <span className="flex flex-col items-center gap-2">
+                <span className="font-heading text-5xl leading-none font-bold">
+                  {match.home}–{match.away}
+                </span>
+                <span className="rounded-full bg-background/15 px-3 py-0.5 text-base font-semibold">{match.label}</span>
               </span>
-              {match ? `${match.home}–${match.away} · ${match.label}` : formatTime(GAME.kickoff)}
-            </span>
-            <span className="flex items-center gap-1.5 px-2">
-              <DoorOpen className="size-5" />
-              {formatTime(party.doors)}
-            </span>
-            <button type="button" onClick={() => setWho(true)} className="flex h-10 items-center gap-1.5 rounded-full px-3 active:bg-background">
-              <Users className="size-5" />
-              {(people.length - party.crowd.length + party.going).toLocaleString()}
-            </button>
-          </div>
+              <span className="justify-self-center text-6xl leading-none">{flag(GAME.away)}</span>
+            </div>
+          ) : (
+            <div className="flex h-14 items-center justify-between rounded-2xl bg-card px-2 text-base font-semibold whitespace-nowrap tabular-nums">
+              <span className={cn('flex h-10 items-center gap-1.5 rounded-full px-3', match && 'bg-foreground text-background')}>
+                <span className="text-xl leading-none">
+                  {flag(GAME.home)}
+                  {flag(GAME.away)}
+                </span>
+                {match ? `${match.home}–${match.away} · ${match.label}` : formatTime(GAME.kickoff)}
+              </span>
+              <span className="flex items-center gap-1.5 px-2">
+                <DoorOpen className="size-5" />
+                {formatTime(party.doors)}
+              </span>
+              <button type="button" onClick={() => setWho(true)} className="flex h-10 items-center gap-1.5 rounded-full px-3 active:bg-background">
+                <Users className="size-5" />
+                {(people.length - party.crowd.length + party.going).toLocaleString()}
+              </button>
+            </div>
+          )}
 
           {/* Before you get there it's a short list of what's on. Once you're there it opens
               up into the full board, and the tiles you can use open from it. */}
