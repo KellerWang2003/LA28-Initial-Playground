@@ -95,9 +95,9 @@ const AT_HALFTIME = { ...ON_TIME, time: '2028-07-20T21:15' }
 const watchParty: Jump[] = [
   { title: 'Tonight on Activities', detail: 'Brazil vs Morocco and the crowds heading to each party', to: '/events', debug: ON_TIME, at: null, setup: () => goTo(null) },
   { title: 'Swipe the parties', detail: 'Who’s going, Sign up', to: '/events/tonight', debug: ON_TIME, at: null, setup: () => goTo(null) },
-  { title: 'Party page, going', detail: 'Grand Park screening · what you can do, who’s going, getting there', to: '/events/tonight/grandpark', debug: ON_TIME, at: null, setup: () => goTo('grandpark') },
-  { title: 'Arrived: Activities welcomes you', detail: '9:05 PM · Welcome to Grand Park, the score, CrowdPlay soon', to: '/events', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => goTo('grandpark') },
-  { title: 'Arrived: the party page', detail: '9:05 PM · the same page, now the party', to: '/events/tonight/grandpark', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => goTo('grandpark') },
+  { title: 'Party page, going', detail: 'Grand Park screening · the crowd pin, what you can do, getting there', to: '/events/tonight/grandpark', debug: ON_TIME, at: null, setup: () => goTo('grandpark') },
+  { title: 'Arrived: Activities', detail: '9:05 PM · the Tonight card says welcome', to: '/events', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => goTo('grandpark') },
+  { title: 'Arrived: the party page', detail: '9:05 PM · same page, the header says welcome', to: '/events/tonight/grandpark', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => goTo('grandpark') },
   { title: 'CrowdPlay lobby', detail: 'Look up, pick a side', to: PLAY, debug: AT_HALFTIME, at: 'grandpark' },
   { title: 'CrowdPlay swim race', detail: 'Tap to swim', to: `${PLAY}?step=race`, debug: AT_HALFTIME, at: 'grandpark' },
   { title: 'CrowdPlay trivia', detail: 'Four big answers', to: `${PLAY}?step=trivia`, debug: AT_HALFTIME, at: 'grandpark' },

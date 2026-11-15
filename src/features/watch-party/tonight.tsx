@@ -5,14 +5,12 @@ import { Button } from '@/components/ui/button'
 import { COLLECT_RADIUS_M, flag, formatTime, placeById } from '@/data/la28'
 import { formatMinutes, travelFromYou } from '@/data/map-layers'
 import { metersBetween, placeCoords, useFanLocation } from '@/lib/location'
-import { useClock } from '@/lib/clock'
 import { useProfile } from '@/lib/profile'
 import { cn } from '@/lib/utils'
-import { GROUPINGS, you, type Grouping } from './crowd'
-import { CrowdStage, type Picked } from './crowd-stage'
+import { you } from './crowd'
 import { GAME, PARTIES, goTo, useGoingTo, type Party } from './parties'
-import { CrowdPlayCard } from './party-page'
-import { matchAt } from './match'
+import { CrowdPin } from './crowd-pin'
+import { WhoSheet } from './who-sheet'
 
 // Tonight's watch parties: a card on Activities with the crowds heading to each party, and
 // a stack of party cards you swipe through, each with who's going and Sign up.
@@ -88,12 +86,8 @@ export function TonightMap({ className, onPick }: { className?: string; onPick?:
   )
 }
 
-// The top of Activities: tonight's watch parties, or once you walk into one, a welcome to it
-// (like a store app greeting you at the door)
+// The top of Activities: tonight's game and its watch parties
 export function TonightSection({ title }: { title: (text: string) => ReactNode }) {
-  const fan = useFanLocation()
-  const at = PARTIES.find((p) => metersBetween(fan, placeCoords(p.place)) <= COLLECT_RADIUS_M)
-  if (at) return <WelcomeCard party={at} />
   return (
     <section>
       {title('Tonight')}
@@ -102,49 +96,26 @@ export function TonightSection({ title }: { title: (text: string) => ReactNode }
   )
 }
 
-function WelcomeCard({ party }: { party: Party }) {
-  const navigate = useNavigate()
-  const now = useClock()
-  const match = matchAt(now)
-  const place = placeById(party.place)
-  return (
-    <section className="mx-4 overflow-hidden rounded-[2rem] bg-card">
-      <Link to={`/events/tonight/${party.id}`} className="block rounded-[2rem] bg-foreground p-5 text-background active:opacity-90">
-        <div className="flex items-start justify-between">
-          <p className="text-5xl leading-none" aria-hidden>
-            👋
-          </p>
-          <ChevronRight className="size-6" />
-        </div>
-        <h2 className="mt-3 font-heading text-[1.75rem] leading-tight font-semibold">
-          Welcome to
-          <br />
-          {place.name}
-        </h2>
-        <div className="mt-5 flex items-center justify-center gap-5 rounded-2xl bg-background/10 py-3">
-          <span className="text-4xl leading-none">{flag(GAME.home)}</span>
-          <span className="flex flex-col items-center">
-            <span className="font-heading text-3xl font-bold tabular-nums">{match ? `${match.home} – ${match.away}` : formatTime(GAME.kickoff)}</span>
-            {match && <span className="mt-0.5 rounded-full bg-background px-2 py-0.5 text-xs font-semibold text-foreground tabular-nums">{match.label}</span>}
-          </span>
-          <span className="text-4xl leading-none">{flag(GAME.away)}</span>
-        </div>
-      </Link>
-      {party.crowdPlay && <CrowdPlayCard now={now} onJoin={() => navigate(`/events/tonight/${party.id}/play`)} className="m-0 border-0" />}
-    </section>
-  )
-}
-
 // Tonight's game and its parties, with the one you're going to
 export function TonightCard() {
   const goingTo = useGoingTo()
-  const going = PARTIES.find((p) => p.id === goingTo)
+  const fan = useFanLocation()
+  // Once you're at a party, the card welcomes you to it
+  const at = PARTIES.find((p) => metersBetween(fan, placeCoords(p.place)) <= COLLECT_RADIUS_M)
+  const going = at ?? PARTIES.find((p) => p.id === goingTo)
   return (
     <Link to={going ? `/events/tonight/${going.id}` : '/events/tonight'} className="mx-4 block rounded-3xl bg-card p-4 active:scale-[0.99]">
       <Matchup className="text-lg" />
       <TonightMap className="mt-3 h-36" />
       <div className="mt-3 flex items-center gap-2">
-        {going ? (
+        {at ? (
+          <>
+            <span className="text-2xl leading-none" aria-hidden>
+              👋
+            </span>
+            <span className="truncate font-heading text-lg font-semibold">Welcome to {placeById(at.place).name}</span>
+          </>
+        ) : going ? (
           <>
             <span className="flex items-center gap-1.5 rounded-full bg-foreground px-3 py-1 text-sm font-semibold text-background">Going</span>
             <span className="truncate font-heading text-lg font-semibold">{going.title}</span>
@@ -227,8 +198,7 @@ export function PartyStack() {
 
 export function PartyCard({ party, active, joining, onSignUp }: { party: Party; active: boolean; joining?: boolean; onSignUp?: () => void }) {
   const profile = useProfile()
-  const [by, setBy] = useState<Grouping>('everyone')
-  const [picked, setPicked] = useState<Picked>(null)
+  const [who, setWho] = useState(false)
   const here = useFanLocation()
   const place = placeById(party.place)
   const trip = travelFromYou([place.lng, place.lat], here)
@@ -241,25 +211,17 @@ export function PartyCard({ party, active, joining, onSignUp }: { party: Party; 
         <h2 className="mt-2 font-heading text-2xl leading-tight font-semibold">{party.title}</h2>
       </div>
 
-      <div className="relative min-h-0 flex-1" onPointerDown={(e) => e.stopPropagation()}>
-        <CrowdStage people={people} by={by} picked={picked} onPick={setPicked} arriving={!!joining} />
-      </div>
-
-      <div className="no-scrollbar flex shrink-0 justify-center gap-2 overflow-x-auto px-4 pb-3" onPointerDown={(e) => e.stopPropagation()}>
-        {GROUPINGS.map((g) => (
-          <button
-            key={g.id}
-            type="button"
-            aria-pressed={by === g.id}
-            onClick={() => {
-              setBy(g.id)
-              setPicked(null)
-            }}
-            className={cn('h-10 shrink-0 rounded-full border px-4 text-sm font-semibold active:scale-95', by === g.id && 'border-foreground bg-foreground text-background')}
-          >
-            {g.label}
-          </button>
-        ))}
+      {/* Who's going: the party's pin in the crowd's colors. Tap for the details. */}
+      <div className="flex min-h-0 flex-1 items-center justify-center">
+        <button
+          type="button"
+          aria-label="Who’s going"
+          onClick={() => setWho(true)}
+          onPointerDown={(e) => e.stopPropagation()}
+          className={cn('transition-transform active:scale-95', joining && 'animate-pop')}
+        >
+          <CrowdPin key={people.length} shape="tv" people={people} className="size-56" />
+        </button>
       </div>
 
       <div className="m-2 mt-0 shrink-0 rounded-[1.25rem] bg-card p-3">
@@ -276,6 +238,7 @@ export function PartyCard({ party, active, joining, onSignUp }: { party: Party; 
           {joining ? 'Going' : 'Sign up'}
         </Button>
       </div>
+      {who && <WhoSheet people={people} onClose={() => setWho(false)} />}
     </article>
   )
 }
