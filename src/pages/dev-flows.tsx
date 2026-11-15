@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { BookMarked, BookOpen, Bookmark, ChevronLeft, ChevronRight, RotateCcw, Sparkles, Users, type LucideIcon } from 'lucide-react'
+import { BookMarked, BookOpen, Bookmark, ChevronLeft, ChevronRight, RotateCcw, Sparkles, Tv, Users, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DebugControls } from '@/components/debug-panel'
 import { BatonDebugControls } from '@/components/baton-debug'
@@ -12,6 +12,7 @@ import { setDebug, type DebugState } from '@/lib/debug'
 import { debugMoments } from '@/features/crowdplay/schedule'
 import { stageKeepGoing, type KeepStage } from '@/features/activity/keep-going-state'
 import { moveFan } from '@/lib/location'
+import { goTo } from '@/features/watch-party/parties'
 import { pinById, placeById } from '@/data/la28'
 import { BONUSES, bonusById, bonusKindTitle, type Bonus, type BonusKind } from '@/data/bonuses'
 
@@ -30,6 +31,8 @@ type Jump = {
   resetBonus?: string
   // Start the after-game hangout at this step
   keep?: KeepStage
+  // Anything else to set up first
+  setup?: () => void
 }
 
 const ON_TIME: Partial<DebugState> = { time: null, venueGame: 'schedule' }
@@ -84,6 +87,15 @@ const keepGoing: Jump[] = [
   { title: 'Group voting on a place', detail: 'The vote closes 10 minutes after you join', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'voting' },
   { title: 'Hosting', detail: 'People join one at a time, then vote', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'hosting' },
   { title: 'Vote closed', detail: 'The plan, and the person you got talking to', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'decided' },
+]
+
+// Watch party: plan (Tonight, the party stack), the page before you go, then at the party
+const watchParty: Jump[] = [
+  { title: 'Tonight on Activities', detail: 'Brazil vs Morocco and the crowds heading to each party', to: '/events', debug: ON_TIME, at: null },
+  { title: 'Swipe the parties', detail: 'Who’s going, Sign up', to: '/events/tonight', debug: ON_TIME, at: null, setup: () => goTo(null) },
+  { title: 'Party page, not there yet', detail: 'Grand Park screening · what you can do', to: '/events/tonight/grandpark', debug: ON_TIME, at: null, setup: () => goTo('grandpark') },
+  { title: 'Arrived at the party', detail: '9:05 PM · welcome, the score, CrowdPlay soon', to: '/events/tonight/grandpark', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => goTo('grandpark') },
+  { title: 'CrowdPlay', detail: 'Pick a side, race, results', to: '/events/tonight/grandpark/play', debug: { ...ON_TIME, time: '2028-07-20T21:15' }, at: 'grandpark' },
 ]
 
 // 'YYYY-MM-DDTHH:MM' a few minutes after `iso`, in local time like the mock data
@@ -146,6 +158,7 @@ export default function DevFlowsPage() {
     Object.entries(jump.collect ?? {}).forEach(([id, on]) => setCollected(id, on))
     if (jump.resetBonus) resetBonus(jump.resetBonus)
     if (jump.keep) stageKeepGoing(jump.keep)
+    jump.setup?.()
     navigate(jump.to)
   }
 
@@ -160,6 +173,12 @@ export default function DevFlowsPage() {
       </header>
 
       <div className="no-scrollbar min-h-0 flex-1 space-y-7 overflow-y-auto overscroll-contain px-4 pt-2 pb-[max(env(safe-area-inset-bottom),24px)]">
+        <Section icon={Tv} title="Watch party">
+          {watchParty.map((j) => (
+            <JumpRow key={j.title} jump={j} onGo={go} />
+          ))}
+        </Section>
+
         <Section icon={BookOpen} title="Collect and bonus">
           {structure.map((j) => (
             <JumpRow key={j.title} jump={j} onGo={go} />

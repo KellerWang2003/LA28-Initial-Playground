@@ -187,6 +187,55 @@
     0% { transform: scale(1.6) rotate(-8deg); opacity: 0; }
     100% { transform: scale(1) rotate(-4deg); opacity: 1; }
   }
+  /* On my way: the pin bobbing, faces popping in, the matchmaking radar, the phone shake */
+  --animate-bob: bob 2.6s ease-in-out infinite;
+  --animate-pop: pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+  --animate-radar: radar 1.8s ease-out infinite;
+  --animate-shake: shake 0.6s ease-in-out both;
+  --animate-rise: rise 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  @keyframes pop {
+    0% { transform: scale(0.4); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes radar {
+    0% { transform: scale(0.8); opacity: 0.5; }
+    100% { transform: scale(3.2); opacity: 0; }
+  }
+  @keyframes shake {
+    0%, 100% { transform: rotate(0); }
+    20% { transform: rotate(-14deg); }
+    40% { transform: rotate(12deg); }
+    60% { transform: rotate(-8deg); }
+    80% { transform: rotate(5deg); }
+  }
+  @keyframes rise {
+    0% { transform: translateY(12px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+  /* Watch parties: a crowd blob swelling in, your bubble dropping into the crowd */
+  --animate-blob-in: blob-in 0.6s cubic-bezier(0.34, 1.4, 0.5, 1) both;
+  --animate-you-drop: you-drop 0.9s cubic-bezier(0.3, 1.5, 0.5, 1) 0.35s both;
+  /* Tonight map: a fan drifting into a party's crowd from (--dx, --dy) */
+  --animate-drift: drift 2.7s ease-in infinite;
+  @keyframes drift {
+    0% { transform: translate(var(--dx), var(--dy)); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translate(0, 0); opacity: 0; }
+  }
+  @keyframes blob-in {
+    0% { transform: scale(0.3); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes you-drop {
+    0% { transform: translateY(-160px) scale(1.6); opacity: 0; }
+    55% { transform: translateY(6px) scale(0.92); opacity: 1; }
+    75% { transform: translateY(-3px) scale(1.06); }
+    100% { transform: translateY(0) scale(1); }
+  }
 }
 
 /* Passport: a page (or the cover) on the spine, lifted from --lift-from to --lift-to

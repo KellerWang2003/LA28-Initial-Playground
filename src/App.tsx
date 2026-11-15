@@ -5,6 +5,7 @@ import { EmptyScreen } from '@/components/empty-screen'
 import { SaveButton } from '@/components/save-sheet'
 import ExplorePage from '@/pages/explore'
 import PinCapturePage from '@/pages/pin-capture'
+import WatchPartiesPage, { WatchPartyPage, WatchPartyPlayPage } from '@/pages/watch-parties'
 import PinDetailPage from '@/pages/pin-detail'
 import BonusPage from '@/pages/bonus'
 import DevFlowsPage from '@/pages/dev-flows'
@@ -68,6 +69,9 @@ function App() {
       <Route path="events/create" element={<EventCreatePage />} />
       <Route path="events/keep-going" element={<KeepGoingPage />} />
       <Route path="events/mine" element={<MyActivitiesPage />} />
+      <Route path="events/tonight" element={<WatchPartiesPage />} />
+      <Route path="events/tonight/:partyId" element={<WatchPartyPage />} />
+      <Route path="events/tonight/:partyId/play" element={<WatchPartyPlayPage />} />
       <Route path="events/:eventId" element={<EventDetail />} />
       <Route path="places/:placeId" element={<PlaceDetail />} />
       <Route path="search" element={<SearchPage />} />
