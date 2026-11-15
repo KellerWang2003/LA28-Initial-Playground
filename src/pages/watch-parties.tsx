@@ -1,4 +1,4 @@
-import { Navigate, useNavigate, useParams } from 'react-router'
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Matchup, PartyStack } from '@/features/watch-party/tonight'
@@ -33,5 +33,8 @@ export function WatchPartyPage() {
 export function WatchPartyPlayPage() {
   const { partyId = '' } = useParams()
   const party = partyById(partyId)
-  return party ? <CrowdPlay party={party} /> : <Navigate to="/events/tonight" replace />
+  // The flow gallery can open a later step: ?step=race|trivia|results
+  const step = useSearchParams()[0].get('step')
+  const start = step === 'race' || step === 'trivia' || step === 'results' ? step : 'lobby'
+  return party ? <CrowdPlay key={start} party={party} start={start} /> : <Navigate to="/events/tonight" replace />
 }

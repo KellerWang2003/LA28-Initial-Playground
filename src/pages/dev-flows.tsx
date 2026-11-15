@@ -90,12 +90,18 @@ const keepGoing: Jump[] = [
 ]
 
 // Watch party: plan (Tonight, the party stack), the page before you go, then at the party
+const PLAY = '/events/tonight/grandpark/play'
+const AT_HALFTIME = { ...ON_TIME, time: '2028-07-20T21:15' }
 const watchParty: Jump[] = [
-  { title: 'Tonight on Activities', detail: 'Brazil vs Morocco and the crowds heading to each party', to: '/events', debug: ON_TIME, at: null },
+  { title: 'Tonight on Activities', detail: 'Brazil vs Morocco and the crowds heading to each party', to: '/events', debug: ON_TIME, at: null, setup: () => goTo(null) },
   { title: 'Swipe the parties', detail: 'Who’s going, Sign up', to: '/events/tonight', debug: ON_TIME, at: null, setup: () => goTo(null) },
-  { title: 'Party page, not there yet', detail: 'Grand Park screening · what you can do', to: '/events/tonight/grandpark', debug: ON_TIME, at: null, setup: () => goTo('grandpark') },
-  { title: 'Arrived at the party', detail: '9:05 PM · welcome, the score, CrowdPlay soon', to: '/events/tonight/grandpark', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => goTo('grandpark') },
-  { title: 'CrowdPlay', detail: 'Pick a side, race, results', to: '/events/tonight/grandpark/play', debug: { ...ON_TIME, time: '2028-07-20T21:15' }, at: 'grandpark' },
+  { title: 'Party page, going', detail: 'Grand Park screening · what you can do, who’s going, getting there', to: '/events/tonight/grandpark', debug: ON_TIME, at: null, setup: () => goTo('grandpark') },
+  { title: 'Arrived: Activities welcomes you', detail: '9:05 PM · Welcome to Grand Park, the score, CrowdPlay soon', to: '/events', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => goTo('grandpark') },
+  { title: 'Arrived: the party page', detail: '9:05 PM · the same page, now the party', to: '/events/tonight/grandpark', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => goTo('grandpark') },
+  { title: 'CrowdPlay lobby', detail: 'Look up, pick a side', to: PLAY, debug: AT_HALFTIME, at: 'grandpark' },
+  { title: 'CrowdPlay swim race', detail: 'Tap to swim', to: `${PLAY}?step=race`, debug: AT_HALFTIME, at: 'grandpark' },
+  { title: 'CrowdPlay trivia', detail: 'Four big answers', to: `${PLAY}?step=trivia`, debug: AT_HALFTIME, at: 'grandpark' },
+  { title: 'CrowdPlay results', detail: 'Torches and the country leaderboard', to: `${PLAY}?step=results`, debug: AT_HALFTIME, at: 'grandpark' },
 ]
 
 // 'YYYY-MM-DDTHH:MM' a few minutes after `iso`, in local time like the mock data

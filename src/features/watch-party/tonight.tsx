@@ -1,15 +1,18 @@
-import { useState, type CSSProperties, type PointerEvent } from 'react'
+import { useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { ChevronRight, MapPin, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { flag, formatTime, placeById } from '@/data/la28'
+import { COLLECT_RADIUS_M, flag, formatTime, placeById } from '@/data/la28'
 import { formatMinutes, travelFromYou } from '@/data/map-layers'
-import { useFanLocation } from '@/lib/location'
+import { metersBetween, placeCoords, useFanLocation } from '@/lib/location'
+import { useClock } from '@/lib/clock'
 import { useProfile } from '@/lib/profile'
 import { cn } from '@/lib/utils'
 import { GROUPINGS, you, type Grouping } from './crowd'
 import { CrowdStage, type Picked } from './crowd-stage'
-import { GAME, PARTIES, goTo, type Party } from './parties'
+import { GAME, PARTIES, goTo, useGoingTo, type Party } from './parties'
+import { CrowdPlayCard } from './party-page'
+import { matchAt } from './match'
 
 // Tonight's watch parties: a card on Activities with the crowds heading to each party, and
 // a stack of party cards you swipe through, each with who's going and Sign up.
@@ -85,15 +88,73 @@ export function TonightMap({ className, onPick }: { className?: string; onPick?:
   )
 }
 
-// The card on Activities
-export function TonightCard() {
+// The top of Activities: tonight's watch parties, or once you walk into one, a welcome to it
+// (like a store app greeting you at the door)
+export function TonightSection({ title }: { title: (text: string) => ReactNode }) {
+  const fan = useFanLocation()
+  const at = PARTIES.find((p) => metersBetween(fan, placeCoords(p.place)) <= COLLECT_RADIUS_M)
+  if (at) return <WelcomeCard party={at} />
   return (
-    <Link to="/events/tonight" className="mx-4 block rounded-3xl bg-card p-4 active:scale-[0.99]">
+    <section>
+      {title('Tonight')}
+      <TonightCard />
+    </section>
+  )
+}
+
+function WelcomeCard({ party }: { party: Party }) {
+  const navigate = useNavigate()
+  const now = useClock()
+  const match = matchAt(now)
+  const place = placeById(party.place)
+  return (
+    <section className="mx-4 overflow-hidden rounded-[2rem] bg-card">
+      <Link to={`/events/tonight/${party.id}`} className="block rounded-[2rem] bg-foreground p-5 text-background active:opacity-90">
+        <div className="flex items-start justify-between">
+          <p className="text-5xl leading-none" aria-hidden>
+            👋
+          </p>
+          <ChevronRight className="size-6" />
+        </div>
+        <h2 className="mt-3 font-heading text-[1.75rem] leading-tight font-semibold">
+          Welcome to
+          <br />
+          {place.name}
+        </h2>
+        <div className="mt-5 flex items-center justify-center gap-5 rounded-2xl bg-background/10 py-3">
+          <span className="text-4xl leading-none">{flag(GAME.home)}</span>
+          <span className="flex flex-col items-center">
+            <span className="font-heading text-3xl font-bold tabular-nums">{match ? `${match.home} – ${match.away}` : formatTime(GAME.kickoff)}</span>
+            {match && <span className="mt-0.5 rounded-full bg-background px-2 py-0.5 text-xs font-semibold text-foreground tabular-nums">{match.label}</span>}
+          </span>
+          <span className="text-4xl leading-none">{flag(GAME.away)}</span>
+        </div>
+      </Link>
+      {party.crowdPlay && <CrowdPlayCard now={now} onJoin={() => navigate(`/events/tonight/${party.id}/play`)} className="m-0 border-0" />}
+    </section>
+  )
+}
+
+// Tonight's game and its parties, with the one you're going to
+export function TonightCard() {
+  const goingTo = useGoingTo()
+  const going = PARTIES.find((p) => p.id === goingTo)
+  return (
+    <Link to={going ? `/events/tonight/${going.id}` : '/events/tonight'} className="mx-4 block rounded-3xl bg-card p-4 active:scale-[0.99]">
       <Matchup className="text-lg" />
       <TonightMap className="mt-3 h-36" />
       <div className="mt-3 flex items-center gap-2">
-        <span className="font-heading text-lg font-semibold">Watch parties</span>
-        <span className="rounded-full bg-foreground px-2.5 py-0.5 text-sm font-semibold text-background tabular-nums">{PARTIES.length}</span>
+        {going ? (
+          <>
+            <span className="flex items-center gap-1.5 rounded-full bg-foreground px-3 py-1 text-sm font-semibold text-background">Going</span>
+            <span className="truncate font-heading text-lg font-semibold">{going.title}</span>
+          </>
+        ) : (
+          <>
+            <span className="font-heading text-lg font-semibold">Watch parties</span>
+            <span className="rounded-full bg-foreground px-2.5 py-0.5 text-sm font-semibold text-background tabular-nums">{PARTIES.length}</span>
+          </>
+        )}
         <ChevronRight className="ml-auto size-5" />
       </div>
     </Link>

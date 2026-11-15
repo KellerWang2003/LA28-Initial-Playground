@@ -1,57 +1,76 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Flame, Mic, Tv, X } from 'lucide-react'
+import { Check, Flame, Tv, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { flag } from '@/data/la28'
 import { cn } from '@/lib/utils'
 import { GAME, type Party } from './parties'
 
 // CrowdPlay at a watch party: the host runs it on the big screen and every phone is a
-// controller. Dark and big, like a game show: one thing to look at, one thing to tap.
-// Lobby (pick a side), a swim race you win by tapping, then the results.
+// controller. Same frame and tiles as CrowdPlay in a game room (dark, one thing to read,
+// one thing to tap). Pick a side, a swim race you win by tapping, a trivia question, results.
 
-type Step = 'lobby' | 'race' | 'results'
+type Step = 'lobby' | 'race' | 'trivia' | 'results'
 type Side = 'BR' | 'MA'
 
 const PLAYERS: [string, number][] = [['BR', 212], ['MA', 188], ['US', 96], ['MX', 41], ['FR', 22]]
 const RACE_S = 10
+const SHAPES = ['▲', '◆', '●', '■']
+const TITLES: Record<Step, string> = { lobby: 'CrowdPlay', race: 'Swim race', trivia: 'Trivia', results: 'CrowdPlay' }
 
-export function CrowdPlay({ party }: { party: Party }) {
+const TRIVIA = {
+  title: 'How many World Cups has Brazil won?',
+  options: ['3', '4', '5', '6'],
+  right: 2,
+}
+
+export function CrowdPlay({ party, start = 'lobby' }: { party: Party; start?: Step }) {
   const navigate = useNavigate()
-  const [step, setStep] = useState<Step>('lobby')
-  const [side, setSide] = useState<Side | null>(null)
-  const [taps, setTaps] = useState(0)
+  const [step, setStep] = useState<Step>(start)
+  const [side, setSide] = useState<Side | null>(start === 'lobby' ? null : 'BR')
+  const [taps, setTaps] = useState(start === 'lobby' ? 0 : 48)
+  const [answer, setAnswer] = useState<number | null>(null)
+  const torches = (step === 'lobby' || step === 'race' ? 0 : 10 + Math.min(40, Math.round(taps / 2))) + (answer === TRIVIA.right ? 10 : 0)
 
   return (
     <div className="flex h-dvh flex-col bg-foreground pt-[env(safe-area-inset-top)] text-background">
-      <header className="flex h-14 shrink-0 items-center justify-between px-2">
-        <Button variant="ghost" size="icon-lg" aria-label="Leave" onClick={() => navigate(`/events/tonight/${party.id}`)} className="hover:bg-background/10 hover:text-background">
+      <header className="flex h-14 shrink-0 items-center gap-2 px-3">
+        <button
+          type="button"
+          onClick={() => navigate(`/events/tonight/${party.id}`)}
+          aria-label="Close CrowdPlay"
+          className="grid size-11 place-items-center rounded-full bg-background/10"
+        >
           <X className="size-5" />
-        </Button>
-        <span className="flex items-center gap-1.5 rounded-full bg-background/10 px-3 py-1.5 text-sm font-semibold">
-          <Mic className="size-4" />
-          Ana
+        </button>
+        <p className="min-w-0 flex-1 truncate text-center text-base font-semibold">{TITLES[step]}</p>
+        <span className="inline-flex h-11 min-w-11 items-center justify-center gap-1 rounded-full bg-background/10 px-3 text-base font-semibold tabular-nums" aria-label={`${torches} Torches`}>
+          <Flame className="size-4 fill-current" />
+          {torches}
         </span>
       </header>
 
       {step === 'lobby' && <Lobby side={side} onSide={setSide} onReady={() => setStep('race')} />}
-      {step === 'race' && side && <Race side={side} taps={taps} onTap={() => setTaps((t) => t + 1)} onDone={() => setStep('results')} />}
-      {step === 'results' && side && <Results side={side} taps={taps} onDone={() => navigate(`/events/tonight/${party.id}`)} />}
+      {step === 'race' && side && <Race side={side} taps={taps} onTap={() => setTaps((t) => t + 1)} onDone={() => setStep('trivia')} />}
+      {step === 'trivia' && <Trivia answer={answer} onAnswer={setAnswer} onNext={() => setStep('results')} />}
+      {step === 'results' && side && <Results side={side} torches={torches} onDone={() => navigate(`/events/tonight/${party.id}`)} />}
     </div>
   )
 }
 
+const BIG_BUTTON = 'mt-4 h-16 w-full rounded-full bg-background text-lg text-foreground hover:bg-background/90'
+
 function Lobby({ side, onSide, onReady }: { side: Side | null; onSide: (s: Side) => void; onReady: () => void }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(env(safe-area-inset-bottom),20px)]">
-      <div className="flex flex-col items-center pt-4 text-center">
+      <div className="flex flex-col items-center pt-6 text-center">
         <Tv className="size-16" strokeWidth={1.25} />
         <h1 className="mt-3 font-heading text-4xl font-bold">Look up!</h1>
       </div>
 
       <ul className="mt-6 flex flex-wrap justify-center gap-2">
         {PLAYERS.map(([cc, n]) => (
-          <li key={cc} className="flex items-center gap-1.5 rounded-full bg-background/10 px-3 py-1.5 text-base font-semibold tabular-nums">
+          <li key={cc} className="flex h-10 items-center gap-1.5 rounded-full bg-background/10 px-3.5 text-base font-semibold tabular-nums">
             <span className="text-lg leading-none">{flag(cc)}</span>
             {n}
           </li>
@@ -66,15 +85,17 @@ function Lobby({ side, onSide, onReady }: { side: Side | null; onSide: (s: Side)
             aria-pressed={side === cc}
             onClick={() => onSide(cc)}
             className={cn(
-              'flex aspect-square flex-col items-center justify-center rounded-[2rem] border-4 text-7xl transition-transform active:scale-95',
-              side === cc ? 'border-background bg-background' : 'border-background/20 bg-background/5',
+              'relative flex aspect-square flex-col items-center justify-center rounded-3xl text-7xl transition-all active:scale-95',
+              side === cc ? 'bg-background' : 'bg-background/10',
+              side && side !== cc && 'opacity-40',
             )}
           >
+            {side === cc && <Check className="absolute top-3 right-3 size-5 text-foreground" aria-hidden />}
             {flag(cc)}
           </button>
         ))}
       </div>
-      <Button size="lg" disabled={!side} onClick={onReady} className="mt-4 h-16 w-full rounded-full bg-background text-lg text-foreground hover:bg-background/90">
+      <Button size="lg" disabled={!side} onClick={onReady} className={BIG_BUTTON}>
         Ready
       </Button>
     </div>
@@ -107,10 +128,7 @@ function Race({ side, taps, onTap, onDone }: { side: Side; taps: number; onTap: 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(env(safe-area-inset-bottom),20px)]">
-      <div className="flex items-center justify-between pt-2">
-        <h1 className="font-heading text-4xl font-bold">Swim!</h1>
-        <span className="flex size-16 items-center justify-center rounded-2xl bg-background font-heading text-3xl font-bold text-foreground tabular-nums">{left}</span>
-      </div>
+      <Timer left={left} total={RACE_S} />
 
       <ul className="mt-6 space-y-3">
         {lanes.map(([cc, p]) => (
@@ -127,7 +145,7 @@ function Race({ side, taps, onTap, onDone }: { side: Side; taps: number; onTap: 
         type="button"
         onClick={onTap}
         disabled={left <= 0}
-        className="mt-auto flex aspect-square w-full items-center justify-center rounded-[3rem] bg-background font-heading text-5xl font-bold text-foreground shadow-xl transition-transform select-none active:scale-95"
+        className="mt-auto flex aspect-square w-full items-center justify-center rounded-[3rem] bg-background font-heading text-6xl font-bold text-foreground shadow-xl transition-transform select-none active:scale-95"
       >
         TAP
       </button>
@@ -135,8 +153,58 @@ function Race({ side, taps, onTap, onDone }: { side: Side; taps: number; onTap: 
   )
 }
 
-function Results({ side, taps, onDone }: { side: Side; taps: number; onDone: () => void }) {
-  const torches = 10 + Math.min(40, Math.round(taps / 2))
+function Timer({ left, total }: { left: number; total: number }) {
+  return (
+    <div className="flex items-center gap-3 pt-2">
+      <div role="progressbar" aria-label="Time left" aria-valuemin={0} aria-valuemax={total} aria-valuenow={left} className="h-2 flex-1 overflow-hidden rounded-full bg-background/15">
+        <div className="h-full rounded-full bg-background transition-[width] duration-1000 ease-linear" style={{ width: `${(left / total) * 100}%` }} />
+      </div>
+      <span className="w-8 text-right font-heading text-2xl font-bold tabular-nums">{left}</span>
+    </div>
+  )
+}
+
+// The same answer tiles as CrowdPlay in a game room
+function Trivia({ answer, onAnswer, onNext }: { answer: number | null; onAnswer: (i: number) => void; onNext: () => void }) {
+  const locked = answer !== null
+  return (
+    <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(env(safe-area-inset-bottom),20px)]">
+      <Timer left={locked ? 4 : 7} total={10} />
+      <h1 className="mt-6 font-heading text-[1.9rem] leading-tight font-bold">{TRIVIA.title}</h1>
+
+      <div role="group" aria-label={TRIVIA.title} className="mt-auto grid grid-cols-2 gap-3">
+        {TRIVIA.options.map((o, i) => {
+          const picked = answer === i
+          return (
+            <button
+              key={o}
+              type="button"
+              disabled={locked}
+              aria-pressed={picked}
+              onClick={() => onAnswer(i)}
+              className={cn(
+                'relative flex min-h-36 items-center justify-center rounded-3xl font-heading text-5xl font-bold transition-all active:scale-95',
+                picked ? 'bg-background text-foreground' : 'bg-background/10',
+                locked && !picked && 'opacity-30',
+              )}
+            >
+              <span className="absolute top-3 left-3.5 text-sm opacity-50" aria-hidden>
+                {SHAPES[i]}
+              </span>
+              {picked && <Check className="absolute top-3 right-3 size-5" aria-hidden />}
+              {o}
+            </button>
+          )
+        })}
+      </div>
+      <Button size="lg" disabled={!locked} onClick={onNext} className={BIG_BUTTON}>
+        Next
+      </Button>
+    </div>
+  )
+}
+
+function Results({ side, torches, onDone }: { side: Side; torches: number; onDone: () => void }) {
   const board: [string, number][] = [
     [side, 2410],
     [side === 'BR' ? 'MA' : 'BR', 2180],
@@ -146,7 +214,7 @@ function Results({ side, taps, onDone }: { side: Side; taps: number; onDone: () 
   ]
   return (
     <div className="flex min-h-0 flex-1 flex-col px-5 pb-[max(env(safe-area-inset-bottom),20px)]">
-      <div className="flex flex-col items-center pt-2 text-center">
+      <div className="flex flex-col items-center pt-4 text-center">
         <span className="text-7xl leading-none">{flag(side)}</span>
         <h1 className="mt-3 font-heading text-4xl font-bold">You won!</h1>
         <span className="mt-4 flex items-center gap-1.5 rounded-full bg-background px-5 py-2 font-heading text-2xl font-bold text-foreground tabular-nums">
@@ -156,7 +224,7 @@ function Results({ side, taps, onDone }: { side: Side; taps: number; onDone: () 
 
       <ol className="mt-6 space-y-2">
         {board.map(([cc, pts], i) => (
-          <li key={cc} className={cn('flex items-center gap-3 rounded-2xl px-4 py-3', cc === side ? 'bg-background text-foreground' : 'bg-background/10')}>
+          <li key={cc} className={cn('flex h-14 items-center gap-3 rounded-2xl px-4', cc === side ? 'bg-background text-foreground' : 'bg-background/10')}>
             <span className="w-5 font-heading text-lg font-bold tabular-nums">{i + 1}</span>
             <span className="text-2xl leading-none">{flag(cc)}</span>
             <span className="ml-auto font-heading text-lg font-semibold tabular-nums">{pts.toLocaleString()}</span>
@@ -164,8 +232,8 @@ function Results({ side, taps, onDone }: { side: Side; taps: number; onDone: () 
         ))}
       </ol>
 
-      <Button size="lg" onClick={onDone} className="mt-auto h-16 w-full rounded-full bg-background text-lg text-foreground hover:bg-background/90">
-        Done
+      <Button size="lg" onClick={onDone} className={cn(BIG_BUTTON, 'mt-auto')}>
+        Back to the party
       </Button>
     </div>
   )

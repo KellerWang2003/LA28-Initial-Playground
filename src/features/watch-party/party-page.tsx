@@ -1,208 +1,327 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { Camera, ChevronLeft, DoorOpen, Footprints, Gamepad2, Navigation, Share, Tv, Users } from 'lucide-react'
+import { Camera, Car, Check, ChevronLeft, DoorOpen, Footprints, Gamepad2, MapPin, Navigation, Share, Toilet, TramFront, Tv, Users, UtensilsCrossed } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ImagePlaceholder } from '@/components/image-placeholder'
+import { MapView, UserDot } from '@/components/map-view'
 import { PinShape } from '@/components/pin-art'
 import { flag, formatTime, placeById } from '@/data/la28'
-import { formatMinutes, travelFromYou } from '@/data/map-layers'
-import { formatCountdown, useClock } from '@/lib/clock'
+import { formatKm, formatMinutes, travelFromYou, type LngLat } from '@/data/map-layers'
+import { useClock } from '@/lib/clock'
 import { useAtPlace, useFanLocation } from '@/lib/location'
+import { useProfile } from '@/lib/profile'
 import { cn } from '@/lib/utils'
-import { GAME, type Party } from './parties'
+import { GROUPINGS, you, type Grouping } from './crowd'
+import { CrowdStage, type Picked } from './crowd-stage'
+import { GAME, goTo, useGoingTo, type Party } from './parties'
+import { crowdPlayAt, matchAt } from './match'
 
-// A watch party's page. Before you get there: when, where, and what you can do there.
-// Once you're there it turns into the party itself, like a store app greeting you when
-// you walk in: welcome, the live score, CrowdPlay on the big screen, and the party's pin.
+// A watch party's event page, built like the pin page: photos, the party, then sections, with
+// the actions in a floating panel. Once you're there the same page greets you, like a store
+// app when you walk in: the top turns into "Welcome to …" with the live score and CrowdPlay,
+// and the rest of the page stays.
 
-const DAY = '2028-07-20'
-const KICKOFF = Date.parse(`${DAY}T${GAME.kickoff}`)
-// Halftime, when the host runs CrowdPlay on the big screen
-export const HALFTIME = KICKOFF + 45 * 60_000
-const HALFTIME_END = HALFTIME + 15 * 60_000
-
-// The match as of now: a minute and a score, made up for the demo
-function matchAt(now: number) {
-  const min = Math.floor((now - KICKOFF) / 60_000)
-  if (min < 0) return null
-  const played = now >= HALFTIME_END ? min - 15 : Math.min(min, 45)
-  const home = played >= 23 ? 1 : 0
-  const away = played >= 61 ? 1 : 0
-  const label = now >= HALFTIME && now < HALFTIME_END ? 'HT' : `${Math.min(played, 90)}′`
-  return { home, away, label }
-}
+const MAP_PADDING = { top: 40, bottom: 40, left: 40, right: 40 }
 
 export function PartyPage({ party }: { party: Party }) {
-  const here = useAtPlace(party.place)
-  return here ? <AtParty party={party} /> : <BeforeParty party={party} />
-}
-
-function Header({ dark }: { dark?: boolean }) {
   const navigate = useNavigate()
-  return (
-    <header className={cn('flex h-14 shrink-0 items-center justify-between px-2', dark && 'text-background')}>
-      <Button variant="ghost" size="icon-lg" aria-label="Back" onClick={() => navigate(-1)} className={cn(dark && 'hover:bg-background/10 hover:text-background')}>
-        <ChevronLeft className="size-5" />
-      </Button>
-      <Button variant="ghost" size="icon-lg" aria-label="Share" className={cn(dark && 'hover:bg-background/10 hover:text-background')}>
-        <Share className="size-5" />
-      </Button>
-    </header>
-  )
-}
-
-function Tile({ icon, label, value, className }: { icon: ReactNode; label: string; value?: ReactNode; className?: string }) {
-  return (
-    <li className={cn('flex flex-col gap-2 rounded-3xl bg-card p-4 [&_svg]:size-7', className)}>
-      {icon}
-      <span className="mt-auto font-heading text-lg leading-tight font-semibold">{label}</span>
-      {value && <span className="text-base font-semibold tabular-nums">{value}</span>}
-    </li>
-  )
-}
-
-// ---- Before you get there ----
-
-function BeforeParty({ party }: { party: Party }) {
-  const place = placeById(party.place)
+  const here = useAtPlace(party.place)
+  const going = useGoingTo() === party.id
+  const now = useClock()
   const fan = useFanLocation()
-  const trip = travelFromYou([place.lng, place.lat], fan)
+  const profile = useProfile()
+  const place = placeById(party.place)
+  const coords: LngLat = [place.lng, place.lat]
+  const trip = travelFromYou(coords, fan)
+  const directions = `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`
+  const people = going ? [...party.crowd, you(profile.country, profile.spoken)] : party.crowd
 
   return (
-    <div className="relative flex h-dvh flex-col bg-background pt-[env(safe-area-inset-top)]">
-      <Header />
-      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-32">
-        <div className="relative">
-          <ImagePlaceholder className="h-36 rounded-3xl border-0" />
-          <span className="absolute top-3 left-3 rounded-full bg-foreground px-3 py-1 text-sm font-semibold text-background">Going</span>
-        </div>
-        <h1 className="mt-4 font-heading text-3xl leading-tight font-semibold">{party.title}</h1>
+    <div className="relative flex h-dvh flex-col bg-background">
+      <div className={cn('no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain', here ? 'pb-8' : 'pb-32')}>
+        {here ? <Welcome party={party} now={now} /> : <Hero party={party} going={going} />}
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <Fact icon={<DoorOpen />} value={formatTime(party.doors)} />
-          <Fact icon={<span className="text-xl leading-none">{flag(GAME.home)}{flag(GAME.away)}</span>} value={formatTime(GAME.kickoff)} />
-          <Fact icon={<Footprints />} value={formatMinutes(trip.walk)} />
-        </div>
+        <div className="space-y-8 px-4 pt-6">
+          {here && party.crowdPlay && <CrowdPlayCard now={now} onJoin={() => navigate(`/events/tonight/${party.id}/play`)} />}
 
-        <h2 className="mt-7 mb-3 font-heading text-xl font-semibold">What you can do</h2>
-        <ul className="grid grid-cols-2 gap-3">
-          {party.crowdPlay && <Tile icon={<Gamepad2 />} label="CrowdPlay" value="Halftime" className="h-36 bg-foreground text-background" />}
-          <Tile icon={<Tv />} label="Big screen" className="h-36" />
-          <Tile icon={<PinShape shape="tv" status="locked" className="size-9" />} label="Party pin" className="h-36" />
-          <Tile
-            icon={<Users />}
-            label="Who’s going"
-            value={<FlagRow party={party} />}
-            className="h-36"
-          />
-        </ul>
+          {!here && <Match />}
+
+          <Section title="What you can do">
+            <ul className="grid grid-cols-2 gap-3">
+              {party.crowdPlay && !here && <Tile icon={<Gamepad2 />} label="CrowdPlay" value="Halftime" dark />}
+              <Tile
+                icon={<PinShape shape="tv" status={here ? 'open' : 'locked'} className="size-8" />}
+                label="Party pin"
+                action={
+                  here && (
+                    <Button size="lg" variant="outline" className="h-12 w-full rounded-full bg-background" onClick={() => navigate('/explore')}>
+                      <Camera data-icon="inline-start" />
+                      Photo
+                    </Button>
+                  )
+                }
+              />
+              <Tile icon={<Tv />} label="Big screen" />
+              <Tile icon={<UtensilsCrossed />} label="Food trucks" />
+              {here && <Tile icon={<Toilet />} label="Restrooms" />}
+            </ul>
+          </Section>
+
+          <Section title={here ? 'Who’s here' : 'Who’s going'} aside={<Count n={party.going + (going ? 1 : 0)} />}>
+            <WhoIsGoing people={people} arriving={false} />
+          </Section>
+
+          {!here && (
+            <Section title="Getting there" aside={<span className="text-sm font-medium tabular-nums">{formatKm(trip.km)}</span>}>
+              <div className="h-44 overflow-hidden rounded-2xl bg-card">
+                <MapView
+                  interactive={false}
+                  markers={[
+                    { id: 'me', coords: fan },
+                    { id: 'place', coords },
+                  ]}
+                  renderMarker={(id) => (id === 'me' ? <UserDot /> : <PinShape shape="tv" status="locked" className="size-9 drop-shadow" />)}
+                  initialBounds={[fan, coords]}
+                  initialPadding={MAP_PADDING}
+                />
+              </div>
+              <p className="mt-3 flex items-center gap-1.5 text-base font-medium">
+                <MapPin className="size-5 shrink-0" />
+                {place.name}
+              </p>
+              <ul className="mt-3 grid grid-cols-3 gap-2">
+                <TravelTime icon={<Footprints />} minutes={trip.walk} />
+                <TravelTime icon={<TramFront />} minutes={trip.transit} />
+                <TravelTime icon={<Car />} minutes={trip.drive} />
+              </ul>
+            </Section>
+          )}
+        </div>
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background to-transparent px-4 pt-8 pb-[max(env(safe-area-inset-bottom),16px)]">
-        <Button
-          size="lg"
-          className="h-16 w-full rounded-full text-lg"
-          nativeButton={false}
-          render={<a href={`https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`} target="_blank" rel="noreferrer" />}
-        >
-          <Navigation data-icon="inline-start" className="size-6" />
-          Directions
-        </Button>
+      {/* Before you get there: two equal actions, like the pin page's panel */}
+      {!here && (
+        <div className="absolute inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-30 grid grid-cols-2 gap-2 rounded-[1.75rem] border bg-background p-2 shadow-xl">
+          <Button
+            size="lg"
+            variant={going ? 'outline' : 'default'}
+            aria-pressed={going}
+            className="h-14 rounded-full text-base"
+            onClick={() => goTo(going ? null : party.id)}
+          >
+            {going && <Check data-icon="inline-start" className="size-5" />}
+            {going ? 'Going' : 'Sign up'}
+          </Button>
+          <Button
+            size="lg"
+            variant={going ? 'default' : 'outline'}
+            className="h-14 rounded-full text-base"
+            nativeButton={false}
+            render={<a href={directions} target="_blank" rel="noreferrer" />}
+          >
+            <Navigation data-icon="inline-start" className="size-5" />
+            Directions
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---- Top of the page ----
+
+function RoundButton({ label, onClick, children }: { label: string; onClick?: () => void; children: ReactNode }) {
+  return (
+    <Button variant="outline" size="icon-lg" aria-label={label} onClick={onClick} className="rounded-full bg-background text-foreground">
+      {children}
+    </Button>
+  )
+}
+
+function TopButtons() {
+  const navigate = useNavigate()
+  return (
+    <div className="absolute inset-x-4 top-[calc(env(safe-area-inset-top)+12px)] flex justify-between">
+      <RoundButton label="Back" onClick={() => navigate(-1)}>
+        <ChevronLeft className="size-5" />
+      </RoundButton>
+      <RoundButton label="Share">
+        <Share className="size-5" />
+      </RoundButton>
+    </div>
+  )
+}
+
+// Before you arrive: photos of the place, the party pin, the title
+function Hero({ party, going }: { party: Party; going: boolean }) {
+  return (
+    <>
+      <div className="relative">
+        <ImagePlaceholder className="h-[calc(env(safe-area-inset-top)+15rem)] w-full rounded-none border-0" />
+        <TopButtons />
+      </div>
+      <div className="flex flex-col items-center px-6 text-center">
+        <div className="-mt-12 rounded-full border bg-background p-3 shadow-sm">
+          <PinShape shape="tv" status="locked" className="size-20" />
+        </div>
+        <h1 className="mt-3 font-heading text-3xl leading-tight font-semibold">{party.title}</h1>
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          <Chip>{party.kind}</Chip>
+          {going && (
+            <Chip dark>
+              <Check className="size-4" />
+              Going
+            </Chip>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// Once you're there: the page turns into the place you just walked into
+function Welcome({ party, now }: { party: Party; now: number }) {
+  const place = placeById(party.place)
+  const match = matchAt(now)
+  return (
+    <div className="relative rounded-b-[2.25rem] bg-foreground px-5 pt-[calc(env(safe-area-inset-top)+76px)] pb-6 text-background">
+      <TopButtons />
+      <p className="text-5xl leading-none" aria-hidden>
+        👋
+      </p>
+      <h1 className="mt-3 font-heading text-[2rem] leading-tight font-semibold">
+        Welcome to
+        <br />
+        {place.name}
+      </h1>
+      <div className="mt-6 grid grid-cols-[1fr_auto_1fr] items-center rounded-3xl bg-background/10 px-4 py-4">
+        <span className="text-center text-5xl leading-none">{flag(GAME.home)}</span>
+        <span className="flex flex-col items-center">
+          <span className="font-heading text-4xl font-bold tabular-nums">{match ? `${match.home} – ${match.away}` : formatTime(GAME.kickoff)}</span>
+          {match && <span className="mt-1 rounded-full bg-background px-2.5 py-0.5 text-sm font-semibold text-foreground tabular-nums">{match.label}</span>}
+        </span>
+        <span className="text-center text-5xl leading-none">{flag(GAME.away)}</span>
       </div>
     </div>
   )
 }
 
+// The game it shows, doors and the walk, before you go
+function Match() {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      <Fact icon={<span className="text-2xl leading-none">{flag(GAME.home)}{flag(GAME.away)}</span>} value={formatTime(GAME.kickoff)} />
+      <Fact icon={<DoorOpen />} value={formatTime('20:00')} />
+      <Fact icon={<Gamepad2 />} value={formatTime('21:15')} />
+    </div>
+  )
+}
+
+export function CrowdPlayCard({ now, onJoin, className }: { now: number; onJoin: () => void; className?: string }) {
+  const state = crowdPlayAt(now)
+  return (
+    <div className={cn('rounded-3xl border-2 border-foreground p-4', className)}>
+      <div className="flex items-center gap-3">
+        <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-foreground text-background">
+          <Gamepad2 className="size-8" />
+        </span>
+        <p className="min-w-0 flex-1 font-heading text-2xl font-semibold">CrowdPlay</p>
+        <span className={cn('rounded-full px-3 py-1 text-base font-semibold tabular-nums', state.live ? 'bg-foreground text-background' : 'bg-card')}>{state.label}</span>
+      </div>
+      <Button size="lg" disabled={state.done} className="mt-4 h-16 w-full rounded-full text-lg" onClick={onJoin}>
+        Join
+      </Button>
+    </div>
+  )
+}
+
+// ---- Pieces ----
+
+function Section({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-heading text-xl font-semibold">{title}</h2>
+        {aside}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function Chip({ dark, children }: { dark?: boolean; children: ReactNode }) {
+  return (
+    <span className={cn('flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold', dark ? 'bg-foreground text-background' : 'bg-card')}>
+      {children}
+    </span>
+  )
+}
+
+function Count({ n }: { n: number }) {
+  return (
+    <span className="flex items-center gap-1.5 text-base font-semibold tabular-nums">
+      <Users className="size-5" />
+      {n.toLocaleString()}
+    </span>
+  )
+}
+
 function Fact({ icon, value }: { icon: ReactNode; value: string }) {
   return (
-    <div className="flex flex-col items-center gap-1.5 rounded-2xl bg-card py-3 [&_svg]:size-6">
+    <div className="flex flex-col items-center gap-2 rounded-2xl bg-card py-3.5 [&_svg]:size-6">
       {icon}
       <span className="text-base font-semibold tabular-nums">{value}</span>
     </div>
   )
 }
 
-// The biggest countries in the crowd
-function FlagRow({ party }: { party: Party }) {
-  const counts = new Map<string, number>()
-  party.crowd.forEach((p) => counts.set(p.cc, (counts.get(p.cc) ?? 0) + 1))
-  const top = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 4)
-  return <span className="text-xl leading-none tracking-wider">{top.map(([cc]) => flag(cc)).join('')}</span>
+function Tile({ icon, label, value, action, dark }: { icon: ReactNode; label: string; value?: string; action?: ReactNode; dark?: boolean }) {
+  return (
+    <li className={cn('flex min-h-36 flex-col gap-2 rounded-3xl p-4 [&>svg]:size-7', dark ? 'bg-foreground text-background' : 'bg-card')}>
+      {icon}
+      <span className="mt-auto font-heading text-lg leading-tight font-semibold">{label}</span>
+      {value && <span className="text-base font-semibold">{value}</span>}
+      {action}
+    </li>
+  )
 }
 
-// ---- At the party ----
-
-function AtParty({ party }: { party: Party }) {
-  const navigate = useNavigate()
-  const now = useClock()
-  const place = placeById(party.place)
-  const match = matchAt(now)
-  const toPlay = Math.ceil((HALFTIME - now) / 1000)
-  const live = now >= HALFTIME && now < HALFTIME_END
-
+function TravelTime({ icon, minutes }: { icon: ReactNode; minutes: number }) {
   return (
-    <div className="flex h-dvh flex-col bg-background">
-      {/* Welcome: the page turns into the place you just walked into */}
-      <div className="shrink-0 rounded-b-[2rem] bg-foreground pt-[env(safe-area-inset-top)] pb-6 text-background">
-        <Header dark />
-        <div className="px-5">
-          <p className="text-5xl leading-none" aria-hidden>
-            👋
-          </p>
-          <h1 className="mt-3 font-heading text-3xl leading-tight font-semibold">
-            Welcome to
-            <br />
-            {place.name}
-          </h1>
-        </div>
+    <li className="flex flex-col items-center gap-1.5 rounded-2xl bg-card py-3 [&_svg]:size-6">
+      {icon}
+      <span className="text-base font-semibold tabular-nums">{formatMinutes(minutes)}</span>
+    </li>
+  )
+}
+
+// The crowd as bubbles, regrouped by country, language or age
+function WhoIsGoing({ people, arriving }: { people: ReturnType<typeof you>[]; arriving: boolean }) {
+  const [by, setBy] = useState<Grouping>('country')
+  const [picked, setPicked] = useState<Picked>(null)
+  return (
+    <div className="overflow-hidden rounded-3xl bg-card">
+      <div className="relative h-72">
+        <CrowdStage people={people} by={by} picked={picked} onPick={setPicked} arriving={arriving} />
       </div>
-
-      <div className="no-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pt-4 pb-[max(env(safe-area-inset-bottom),20px)]">
-        {/* The match */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center rounded-3xl bg-card px-4 py-5">
-          <span className="text-center text-5xl leading-none">{flag(GAME.home)}</span>
-          <span className="flex flex-col items-center">
-            <span className="font-heading text-4xl font-bold tabular-nums">{match ? `${match.home} – ${match.away}` : formatTime(GAME.kickoff)}</span>
-            {match && <span className="mt-1 rounded-full bg-foreground px-2.5 py-0.5 text-sm font-semibold text-background tabular-nums">{match.label}</span>}
-          </span>
-          <span className="text-center text-5xl leading-none">{flag(GAME.away)}</span>
-        </div>
-
-        {/* CrowdPlay on the big screen */}
-        {party.crowdPlay && (
-          <div className="rounded-3xl border-2 border-foreground p-4">
-            <div className="flex items-center gap-3">
-              <span className="flex size-14 items-center justify-center rounded-2xl bg-foreground text-background">
-                <Gamepad2 className="size-8" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-heading text-2xl font-semibold">CrowdPlay</p>
-              </div>
-              <span className="rounded-full bg-card px-3 py-1 text-base font-semibold tabular-nums">{live ? 'Live' : toPlay > 0 ? formatCountdown(toPlay) : 'Done'}</span>
-            </div>
-            <Button size="lg" className="mt-4 h-16 w-full rounded-full text-lg" onClick={() => navigate(`/events/tonight/${party.id}/play`)}>
-              Join
-            </Button>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-3 rounded-3xl bg-card p-4">
-            <PinShape shape="tv" status="open" className="size-12" />
-            <span className="font-heading text-lg font-semibold">Party pin</span>
-            <Button size="lg" variant="outline" className="mt-auto h-12 rounded-full bg-background" onClick={() => navigate('/explore')}>
-              <Camera data-icon="inline-start" />
-              Photo
-            </Button>
-          </div>
-          <div className="flex flex-col gap-3 rounded-3xl bg-card p-4">
-            <Users className="size-12" strokeWidth={1.5} />
-            <span className="font-heading text-lg font-semibold tabular-nums">{party.going.toLocaleString()}</span>
-            <span className="mt-auto">
-              <FlagRow party={party} />
-            </span>
-          </div>
-        </div>
+      <div className="no-scrollbar flex gap-2 overflow-x-auto px-3 pb-3">
+        {GROUPINGS.map((g) => (
+          <button
+            key={g.id}
+            type="button"
+            aria-pressed={by === g.id}
+            onClick={() => {
+              setBy(g.id)
+              setPicked(null)
+            }}
+            className={cn(
+              'h-11 shrink-0 rounded-full px-4 text-base font-semibold active:scale-95',
+              by === g.id ? 'bg-foreground text-background' : 'bg-background',
+            )}
+          >
+            {g.label}
+          </button>
+        ))}
       </div>
     </div>
   )
