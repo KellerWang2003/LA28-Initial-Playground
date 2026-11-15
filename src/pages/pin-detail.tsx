@@ -12,13 +12,15 @@ import { useCollected, useCustomIds } from '@/lib/collected'
 import { usePinPhotos } from '@/lib/pin-photos'
 import { CustomPin } from '@/components/place-photo'
 import { MarkRow } from '@/components/bonus-list'
-import { useFanLocation } from '@/lib/location'
+import { useAtPlace, useFanLocation } from '@/lib/location'
+import { usePinLocked } from '@/lib/clock'
 import { useBonusMarks } from '@/lib/bonuses'
 import { bonusesFor } from '@/data/bonuses'
 import { cn } from '@/lib/utils'
-import { ChallengeRow, MatchOverlay } from '@/features/on-my-way/screens'
-import { startMatching, useOnMyWay } from '@/features/on-my-way/state'
-import { activityAt, flag, pinById, pinKindLabel, placeById, reviewsFor, type Review } from '@/data/la28'
+import { AwayBar, ChallengeRow, TripHero } from '@/features/on-my-way/screens'
+import { useArrivals } from '@/features/on-my-way/use-arrivals'
+import { useOnMyWay } from '@/features/on-my-way/state'
+import { activityAt, flag, pinById, pinKindLabel, placeById, reviewsFor, type Pin, type Review } from '@/data/la28'
 import { formatKm, formatMinutes, travelFromYou, type LngLat } from '@/data/map-layers'
 
 // Placeholder photos per place until real ones exist
@@ -30,6 +32,13 @@ const MAP_PADDING = { top: 48, bottom: 48, left: 48, right: 48 }
 // floating CollectPanel, a separate layer from the place info.
 export default function PinDetailPage() {
   const { pinId = '' } = useParams()
+  const pin = pinById(pinId)
+  if (!pin) return <Navigate to="/explore" replace />
+  return <PinDetail key={pin.id} pin={pin} />
+}
+
+function PinDetail({ pin }: { pin: Pin }) {
+  const pinId = pin.id
   const navigate = useNavigate()
   const collected = useCollected()
   const custom = useCustomIds().includes(pinId)
@@ -37,26 +46,31 @@ export default function PinDetailPage() {
   const yourPhotos = usePinPhotos(pinId)
   const marks = useBonusMarks()
   const here = useFanLocation()
-  const pin = pinById(pinId)
-  const squad = useOnMyWay()
-  const matching = squad.pinId === pinId && (squad.step === 'matching' || squad.step === 'offer')
-
-  if (!pin) return <Navigate to="/explore" replace />
+  const trip = useOnMyWay()
+  const atPlace = useAtPlace(pin.place)
+  const locked = usePinLocked(pin)
+  useArrivals(pinId)
 
   const place = placeById(pin.place)
   const coords: LngLat = [place.lng, place.lat]
-  const trip = travelFromYou(coords, here)
+  const travel = travelFromYou(coords, here)
   const activity = activityAt(place.id)
   const reviews = reviewsFor(place.id)
   const average = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
   const done = collected.includes(pin.id)
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`
+  // Not there yet: Directions and Matchmake. On the way, your route replaces the photos.
+  const away = !done && !locked && !atPlace
+  const onTrip = away && trip.pinId === pin.id && trip.step !== 'idle'
 
   return (
     <div className="relative flex h-dvh flex-col bg-background">
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pb-32">
         {/* Photos of the place, swipeable */}
         <div className="relative">
+          {onTrip ? (
+            <TripHero pin={pin} className="h-[calc(env(safe-area-inset-top)+16rem)]" />
+          ) : (
           <div
             aria-label={`Photos of ${place.name}`}
             onScroll={(e) => setPhoto(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth))}
@@ -66,6 +80,7 @@ export default function PinDetailPage() {
               <ImagePlaceholder key={i} className="h-full w-full shrink-0 snap-center rounded-none border-0" />
             ))}
           </div>
+          )}
           <Button
             variant="outline"
             size="icon-lg"
@@ -75,9 +90,9 @@ export default function PinDetailPage() {
           >
             <ChevronLeft className="size-5" />
           </Button>
-          <span className="absolute right-4 bottom-4 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium tabular-nums shadow-sm">
+          {!onTrip && <span className="absolute right-4 bottom-4 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium tabular-nums shadow-sm">
             {photo + 1} / {PHOTOS}
-          </span>
+          </span>}
         </div>
 
         {/* The pin itself, overlapping the photos */}
@@ -124,7 +139,7 @@ export default function PinDetailPage() {
             </ul>
           </Section>
 
-          <Section title="Getting there" aside={<span className="text-sm text-muted-foreground">{formatKm(trip.km)} away</span>}>
+          <Section title="Getting there" aside={<span className="text-sm text-muted-foreground">{formatKm(travel.km)} away</span>}>
             <div className="h-44 overflow-hidden rounded-xl border">
               <MapView
                 interactive={false}
@@ -144,9 +159,9 @@ export default function PinDetailPage() {
               {place.hood}
             </p>
             <ul className="mt-3 grid grid-cols-3 gap-2">
-              <TravelTime icon={<Footprints />} label="Walk" minutes={trip.walk} />
-              <TravelTime icon={<TramFront />} label="Transit" minutes={trip.transit} />
-              <TravelTime icon={<Car />} label="Drive" minutes={trip.drive} />
+              <TravelTime icon={<Footprints />} label="Walk" minutes={travel.walk} />
+              <TravelTime icon={<TramFront />} label="Transit" minutes={travel.transit} />
+              <TravelTime icon={<Car />} label="Drive" minutes={travel.drive} />
             </ul>
             <Button
               variant="outline"
@@ -178,17 +193,10 @@ export default function PinDetailPage() {
         </div>
       </div>
 
-      {matching ? (
-        <MatchOverlay />
+      {away ? (
+        <AwayBar pin={pin} />
       ) : (
-        <CollectPanel
-          pin={pin}
-          placeName={place.name}
-          collected={done}
-          onCollect={() => navigate(`/explore/pins/${pin.id}/capture`)}
-          directions={directions}
-          onFindSquad={() => startMatching(pin.id)}
-        />
+        <CollectPanel pin={pin} placeName={place.name} collected={done} onCollect={() => navigate(`/explore/pins/${pin.id}/capture`)} />
       )}
     </div>
   )

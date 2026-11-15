@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Camera, Check, ChevronUp, Flame, Lock, Navigation, Sparkles, Users } from 'lucide-react'
+import { Camera, Check, ChevronUp, Flame, Lock, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PinStatusText } from '@/components/pin-art'
@@ -21,16 +21,11 @@ export function CollectPanel({
   placeName,
   collected,
   onCollect,
-  directions,
-  onFindSquad,
 }: {
   pin: Pin
   placeName: string
   collected: boolean
   onCollect: () => void
-  // Not there yet: directions, and finding a squad heading there too
-  directions?: string
-  onFindSquad?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const locked = usePinLocked(pin)
@@ -48,20 +43,6 @@ export function CollectPanel({
 
   // Collected with bonuses left: the button opens them instead
   const bonusAction = collected && bonuses.length > 0
-  // Not there yet: two actions side by side instead of one
-  const away = !collected && !locked && !here && !!onFindSquad
-  const awayActions = (className?: string) => (
-    <div className={cn('grid grid-cols-2 gap-2', className)}>
-      <Button size="lg" variant="outline" className="h-12 rounded-full" nativeButton={false} render={<a href={directions} target="_blank" rel="noreferrer" />}>
-        <Navigation data-icon="inline-start" />
-        Directions
-      </Button>
-      <Button size="lg" className="h-12 rounded-full" onClick={onFindSquad}>
-        <Users data-icon="inline-start" />
-        Find a squad
-      </Button>
-    </div>
-  )
   const action = (className?: string) =>
     bonusAction ? (
       <Button size="lg" onClick={() => setOpen(true)} className={cn('shrink-0', className)}>
@@ -129,9 +110,8 @@ export function CollectPanel({
             </div>
             <ChevronUp className={cn('size-5 shrink-0 text-muted-foreground transition-transform duration-300', open && 'rotate-180')} />
           </button>
-          {!open && !away && action()}
+          {!open && action()}
         </div>
-        {!open && away && awayActions('px-3 pb-3')}
 
         {/* Details: Collect, then Bonus, then the action full width */}
         <div
@@ -180,7 +160,7 @@ export function CollectPanel({
                 </>
               )}
 
-              {away ? awayActions('mt-4') : !collected && action('mt-4 w-full')}
+              {!collected && action('mt-4 w-full')}
             </div>
           </div>
         </div>

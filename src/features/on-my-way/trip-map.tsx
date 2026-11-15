@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // A drawn map for the trip, like the sketch: a light street grid, each person's route to
@@ -46,6 +47,8 @@ export function TripMap({
   pinAt,
   routes,
   searching,
+  nearby,
+  live,
   className,
 }: {
   pin: ReactNode
@@ -53,6 +56,10 @@ export function TripMap({
   routes: Route[]
   // Matchmaking: rings pulse out from your dot
   searching?: boolean
+  // Other fans around while matchmaking
+  nearby?: Pt[]
+  // Live location: no route lines, rings around the pin
+  live?: boolean
   className?: string
 }) {
   return (
@@ -64,7 +71,7 @@ export function TripMap({
             <line x1={0} y1={s} x2={100} y2={s - 4} vectorEffect="non-scaling-stroke" />
           </g>
         ))}
-        {routes.map((r) => {
+        {!live && routes.map((r) => {
           const path = pathFor(r.from, pinAt)
           const at = pointAt(path, r.progress)
           // Walked part dashed and faint, the rest solid
@@ -91,8 +98,24 @@ export function TripMap({
 
       {/* The pin */}
       <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${pinAt[0]}%`, top: `${pinAt[1]}%` }}>
-        {pin}
+        {live && (
+          <>
+            <span className="absolute top-1/2 left-1/2 size-28 -translate-1/2 rounded-full bg-foreground/5" />
+            <span className="absolute top-1/2 left-1/2 size-16 -translate-1/2 rounded-full bg-foreground/10" />
+          </>
+        )}
+        <div className="relative">{pin}</div>
       </div>
+
+      {nearby?.map(([x, y], i) => (
+        <span
+          key={i}
+          className="absolute flex size-7 -translate-x-1/2 -translate-y-1/2 animate-pop items-center justify-center rounded-xl bg-background text-muted-foreground shadow-sm"
+          style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${i * 350}ms` }}
+        >
+          <User className="size-4" />
+        </span>
+      ))}
 
       {routes.map((r) => {
         const at = pointAt(pathFor(r.from, pinAt), r.progress)
@@ -117,7 +140,12 @@ export function TripMap({
               {r.face}
             </span>
             {r.tag && (
-              <span className="absolute top-1/2 left-full ml-1.5 -translate-y-1/2 rounded-full bg-background px-2 py-0.5 text-xs font-semibold whitespace-nowrap shadow-sm tabular-nums">
+              <span
+                className={cn(
+                  'absolute top-1/2 -translate-y-1/2 rounded-full bg-background px-2 py-0.5 text-xs font-semibold whitespace-nowrap shadow-sm tabular-nums',
+                  at[0] > 62 ? 'right-full mr-1.5' : 'left-full ml-1.5',
+                )}
+              >
                 {r.tag}
               </span>
             )}

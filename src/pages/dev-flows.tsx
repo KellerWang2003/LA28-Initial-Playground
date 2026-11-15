@@ -90,14 +90,17 @@ const keepGoing: Jump[] = [
   { title: 'Vote closed', detail: 'The plan, and the person you got talking to', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'decided' },
 ]
 
-// Find a squad: matchmaking from a pin's page, the offer, then the squad's own page
+// Find a squad: Directions and the Matchmake pill on a pin's page, the squad found, the chat
 const G = '/explore/pins/p_griffith'
+const away = { debug: ON_TIME, collect: { p_griffith: false } }
 const squad: Jump[] = [
-  { title: 'Pin page, not there yet', detail: 'Griffith Observatory · challenges, Directions and Find a squad', to: G, debug: ON_TIME, collect: { p_griffith: false }, setup: () => stageSquad('idle') },
-  { title: 'Finding a squad', detail: 'The overlay over the pin page, with Shake', to: G, debug: ON_TIME, collect: { p_griffith: false }, setup: () => stageSquad('matching') },
-  { title: 'Squad found', detail: 'Who and how far · Pass or Join', to: G, debug: ON_TIME, collect: { p_griffith: false }, setup: () => stageSquad('offer') },
-  { title: 'Squad page', detail: 'Everyone’s route, challenges together, the chat', to: `${G}/squad`, debug: ON_TIME, collect: { p_griffith: false }, setup: () => stageSquad('squad') },
-  { title: 'Everyone’s here', detail: 'Take the photo', to: `${G}/squad`, debug: ON_TIME, collect: { p_griffith: false }, setup: () => stageSquad('arrived') },
+  { title: 'Pin page, not there yet', detail: 'Griffith Observatory · Matchmake and Directions', to: G, ...away, setup: () => stageSquad('idle') },
+  { title: 'On the way', detail: 'Your route at the top of the pin page', to: G, ...away, setup: () => stageSquad('onTheWay') },
+  { title: 'Matchmaking', detail: 'The pill searching, fans nearby on the map', to: G, ...away, setup: () => stageSquad('matching') },
+  { title: 'Squad found', detail: 'The pill turns into the squad', to: G, ...away, setup: () => stageSquad('offer') },
+  { title: 'Your squad', detail: 'Full screen · Join squad or Not now', to: `${G}/squad`, ...away, setup: () => stageSquad('offer') },
+  { title: 'Squad chat', detail: 'Live location, the challenge, the chat', to: `${G}/squad`, ...away, setup: () => stageSquad('squad') },
+  { title: 'Everyone’s here', detail: 'You are all here · Start', to: `${G}/squad`, ...away, setup: () => stageSquad('arrived') },
 ]
 
 // Watch party: plan (Tonight, the party stack), the page before you go, then at the party

@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router'
-import { Camera, Check, ChevronLeft, Flame, SendHorizontal, User, Users, Vibrate, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Flame, Navigation, SendHorizontal, User, Users, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PinShape } from '@/components/pin-art'
-import { flag, type Pin } from '@/data/la28'
+import { flag, placeById, type Pin } from '@/data/la28'
 import { BONUS_REWARD, bonusTitle, bonusType, type Bonus } from '@/data/bonuses'
 import { bonusIcon } from '@/lib/bonuses'
 import { useClock } from '@/lib/clock'
@@ -20,22 +20,25 @@ import {
   minutesLeft,
   progressOf,
   send,
-  shakeToMatch,
+  startMatching,
+  startTrip,
   toggleIn,
   useOnMyWay,
   type Message,
 } from './state'
 import { TripMap, type Route } from './trip-map'
 
-// Find a squad: the challenges row on the pin page, the matchmaking overlay, and the
-// squad's own page once you join. Black and white shadcn, big buttons, squircle faces,
-// no subtext: chips and layout carry the meaning.
+// Heading to a pin with a squad, in black and white shadcn: the challenges row and your
+// route on the pin's page, the small Matchmake pill, the squad found (full screen), the
+// squad chat with live location, and everyone together at the end. Big buttons, squircle
+// faces, no subtext: layout carries the meaning.
 
 // ---- Shared bits ----
 
-function Face({ cc, me, className }: { cc?: string; me?: boolean; className?: string }) {
+function Face({ cc, me, className, style }: { cc?: string; me?: boolean; className?: string; style?: CSSProperties }) {
   return (
     <span
+      style={style}
       className={cn(
         'flex size-10 shrink-0 items-center justify-center rounded-2xl text-xl leading-none ring-2 ring-background',
         me ? 'bg-foreground text-[11px] font-bold text-background' : 'bg-card',
@@ -59,7 +62,7 @@ function PinMark({ pin, className }: { pin: Pin; className?: string }) {
   return <PinShape shape={pin.shape} status={pin.status} className={cn('size-12 drop-shadow-md', className)} />
 }
 
-// ---- Challenges on the pin page ----
+// ---- On the pin page ----
 
 export function ChallengeRow({ pinId }: { pinId: string }) {
   const { solo, group } = challengesFor(pinId)
@@ -88,111 +91,152 @@ function ChallengeTile({ bonus }: { bonus: Bonus }) {
   )
 }
 
-// ---- Matchmaking: an overlay on the pin page ----
+// Fans around while matchmaking
+const NEARBY: [number, number][] = [
+  [18, 26],
+  [84, 40],
+  [78, 72],
+  [44, 58],
+]
 
-// Matchmaking, then the squad on offer. A card over the bottom of the pin page, so the
-// page stays readable behind it.
-export function MatchOverlay() {
+// On your way: your route takes the place of the photos at the top of the pin page
+export function TripHero({ pin, className }: { pin: Pin; className?: string }) {
+  const trip = useOnMyWay()
+  const now = useClock()
+  const searching = trip.step === 'matching' || trip.step === 'offer'
+  const me: Route = { id: 'me', me: true, face: 'You', from: ME_FROM, progress: progressOf(now, MY_ETA), tag: `${minutesLeft(now, MY_ETA)} min` }
+  return (
+    <TripMap
+      className={className}
+      pin={<PinMark pin={pin} />}
+      pinAt={PIN_AT}
+      routes={[me]}
+      searching={trip.step === 'matching'}
+      nearby={searching ? NEARBY : undefined}
+    />
+  )
+}
+
+// Not there yet: a small Matchmake pill over one wide button. The pill searches while you
+// keep browsing the page, then turns into the squad it found.
+export function AwayBar({ pin }: { pin: Pin }) {
   const navigate = useNavigate()
   const trip = useOnMyWay()
   const now = useClock()
-  const [shaking, setShaking] = useState(false)
-  const offer = trip.step === 'offer'
-
-  function shake() {
-    setShaking(true)
-    window.setTimeout(shakeToMatch, 600)
-  }
-  useShake(shake, !offer)
+  const step = trip.pinId === pin.id ? trip.step : 'idle'
 
   return (
-    <div className="absolute inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-30 animate-rise rounded-3xl border bg-background p-4 shadow-2xl">
-      <div className="flex items-center gap-2">
-        <h2 className="font-heading text-xl font-semibold">{offer ? 'Squad found' : 'Finding a squad'}</h2>
-        <Button variant="ghost" size="icon" aria-label={offer ? 'Pass' : 'Stop'} onClick={cancelMatching} className="ml-auto -mr-1">
-          <X className="size-5" />
-        </Button>
-      </div>
-
-      {offer ? (
-        <>
-          <ul className="mt-3 space-y-2">
+    <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 bg-gradient-to-t from-background via-background/95 to-transparent px-4 pt-10 pb-[max(env(safe-area-inset-bottom),16px)]">
+      {step === 'offer' ? (
+        <button
+          type="button"
+          onClick={() => navigate(`/explore/pins/${pin.id}/squad`)}
+          className="flex h-14 animate-pop items-center gap-3 rounded-full bg-foreground pr-3 pl-5 text-background shadow-xl active:scale-95"
+        >
+          <span className="font-heading text-lg font-semibold">Squad found</span>
+          <span className="flex -space-x-2">
             {MEMBERS.map((m) => (
-              <li key={m.id} className="flex animate-pop items-center gap-3 rounded-2xl bg-card p-2 pr-3">
-                <Face cc={m.cc} className="size-11 text-2xl ring-card" />
-                <span className="font-semibold">{m.name}</span>
-                <span className="ml-auto rounded-full bg-background px-2.5 py-0.5 text-sm font-semibold tabular-nums">{minutesLeft(now, m.eta)} min</span>
-              </li>
+              <Face key={m.id} cc={m.cc} className="size-9 rounded-xl text-lg ring-foreground" />
             ))}
-          </ul>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Button size="lg" variant="outline" className="h-14 rounded-full text-base" onClick={cancelMatching}>
-              Pass
-            </Button>
-            <Button
-              size="lg"
-              className="h-14 rounded-full text-base"
-              onClick={() => {
-                joinSquad()
-                navigate(`/explore/pins/${trip.pinId}/squad`)
-              }}
-            >
-              Join
-            </Button>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="mt-3 flex items-center gap-2" aria-hidden>
-            <span className="relative">
-              <span className="absolute inset-0 animate-radar rounded-2xl border-2 border-foreground" />
-              <Face me />
-            </span>
+          </span>
+          <ChevronRight className="size-5" />
+        </button>
+      ) : step === 'matching' ? (
+        <span className="flex h-12 items-center gap-2 rounded-full border bg-background pr-1.5 pl-5 shadow-lg">
+          <span className="font-semibold">Matchmaking</span>
+          <span className="flex gap-1" aria-hidden>
             {[0, 1, 2].map((i) => (
-              <span key={i} className="size-10 animate-pulse rounded-2xl border-2 border-dashed border-muted-foreground/40" style={{ animationDelay: `${i * 200}ms` }} />
+              <span key={i} className="size-1.5 animate-pulse rounded-full bg-foreground" style={{ animationDelay: `${i * 200}ms` }} />
             ))}
-          </div>
-          <Button size="lg" variant="outline" className="mt-4 h-14 w-full rounded-full text-base" onClick={shake}>
-            <Vibrate data-icon="inline-start" className={cn('size-5', shaking && 'animate-shake')} />
-            Shake
+          </span>
+          <Button variant="ghost" size="icon" aria-label="Stop" onClick={cancelMatching} className="ml-1 rounded-full">
+            <X className="size-4" />
           </Button>
-        </>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => startMatching(pin.id)}
+          className="flex h-12 items-center gap-2 rounded-full border bg-background pr-2 pl-5 shadow-lg active:scale-95"
+        >
+          <span className="font-semibold">Matchmake</span>
+          <span className="flex -space-x-1.5" aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <span key={i} className="size-7 rounded-xl border-2 border-dashed border-muted-foreground/50 bg-background" />
+            ))}
+          </span>
+        </button>
+      )}
+
+      {step === 'idle' ? (
+        <Button size="lg" className="h-16 w-full rounded-full text-lg" onClick={() => startTrip(pin.id)}>
+          <Navigation data-icon="inline-start" className="size-6" />
+          Directions
+        </Button>
+      ) : (
+        <Button size="lg" variant="secondary" disabled className="h-16 w-full rounded-full text-lg disabled:opacity-100">
+          Not here yet
+          <span className="ml-1 rounded-full bg-background px-2.5 py-0.5 text-base tabular-nums">{minutesLeft(now, MY_ETA)} min</span>
+        </Button>
       )}
     </div>
   )
 }
 
-// Shake the phone to match now. iOS asks for motion access, which needs a tap first.
-function useShake(onShake: () => void, on: boolean) {
-  const fired = useRef(false)
-  useEffect(() => {
-    if (!on) return
-    function onMotion(e: DeviceMotionEvent) {
-      const a = e.accelerationIncludingGravity
-      if (!a || fired.current) return
-      if (Math.hypot(a.x ?? 0, a.y ?? 0, a.z ?? 0) > 24) {
-        fired.current = true
-        onShake()
-      }
-    }
-    window.addEventListener('devicemotion', onMotion)
-    return () => window.removeEventListener('devicemotion', onMotion)
-  })
-  useEffect(() => {
-    const ask = (DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> }).requestPermission
-    if (!ask) return
-    const onTap = () => {
-      ask().catch(() => {})
-      window.removeEventListener('pointerdown', onTap)
-    }
-    window.addEventListener('pointerdown', onTap)
-    return () => window.removeEventListener('pointerdown', onTap)
-  }, [])
+// ---- Squad found: full screen ----
+
+export function YourSquad({ pin }: { pin: Pin }) {
+  const navigate = useNavigate()
+  const now = useClock()
+  const place = placeById(pin.place)
+
+  return (
+    <div className="flex h-dvh flex-col bg-background px-5 pt-[calc(env(safe-area-inset-top)+3rem)] pb-[max(env(safe-area-inset-bottom),16px)]">
+      <h1 className="font-heading text-3xl leading-tight font-semibold">We found you a squad for your {place.name} trip!</h1>
+
+      <ul className="mt-8 space-y-3">
+        {MEMBERS.map((m, i) => (
+          <li key={m.id} className="flex animate-rise items-center gap-4 rounded-3xl bg-card p-3 pr-4" style={{ animationDelay: `${i * 120}ms` }}>
+            <Face cc={m.cc} className="size-14 rounded-[1.1rem] text-3xl ring-card" />
+            <span className="font-heading text-xl font-semibold">{m.name}</span>
+            <span className="ml-auto rounded-full bg-background px-3 py-1 font-semibold tabular-nums">{minutesLeft(now, m.eta)} min</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-auto flex flex-col items-center gap-1">
+        <Button
+          size="lg"
+          className="h-16 w-full rounded-full text-lg"
+          onClick={() => {
+            joinSquad()
+            navigate(`/explore/pins/${pin.id}/squad`, { replace: true })
+          }}
+        >
+          Join squad
+        </Button>
+        <Button
+          variant="ghost"
+          size="lg"
+          className="h-12 rounded-full px-6 text-base"
+          onClick={() => {
+            cancelMatching()
+            navigate(`/explore/pins/${pin.id}`, { replace: true })
+          }}
+        >
+          Not now
+        </Button>
+      </div>
+    </div>
+  )
 }
 
-// ---- The squad's page ----
+// ---- Squad chat ----
 
-function squadRoutes(now: number, arrived: string[]): Route[] {
+// Live location: where everyone is now, the pin in the middle
+const LIVE_PIN: [number, number] = [50, 50]
+
+function liveRoutes(now: number, arrived: string[]): Route[] {
   const tag = (eta: number, who: string) => (arrived.includes(who) ? 'Here' : `${minutesLeft(now, eta)} min`)
   return [
     ...MEMBERS.map((m) => ({ id: m.id, face: flag(m.cc), from: m.from, progress: progressOf(now, m.eta), tag: tag(m.eta, m.id) })),
@@ -200,123 +244,130 @@ function squadRoutes(now: number, arrived: string[]): Route[] {
   ]
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section>
-      <h2 className="mb-2 font-heading text-lg font-semibold">{title}</h2>
-      {children}
-    </section>
-  )
-}
-
-// Everyone's route and ETA, the challenges to do together, and the chat
-export function SquadPage({ pin }: { pin: Pin }) {
+export function SquadChat({ pin }: { pin: Pin }) {
   const navigate = useNavigate()
   const now = useClock()
   const trip = useOnMyWay()
   const [draft, setDraft] = useState('')
+  const [people, setPeople] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
   const everyone = trip.arrived.length === MEMBERS.length + 1
-  const { group } = challengesFor(pin.id)
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [trip.messages.length, everyone])
+  }, [trip.messages.length])
 
-  function submit(text: string) {
-    send(text)
-    setDraft('')
-  }
+  if (everyone) return <Together pin={pin} />
 
   return (
-    <div className="flex h-dvh flex-col bg-background pt-[env(safe-area-inset-top)]">
-      <header className="flex h-14 shrink-0 items-center gap-1 px-2">
-        <Button variant="ghost" size="icon-lg" aria-label="Back" onClick={() => navigate(`/explore/pins/${pin.id}`)}>
+    <div className="relative flex h-dvh flex-col bg-background pt-[env(safe-area-inset-top)]">
+      <header className="flex h-16 shrink-0 items-center gap-2 px-3">
+        <Button variant="outline" size="icon-lg" aria-label="Back" className="rounded-full" onClick={() => navigate(`/explore/pins/${pin.id}`)}>
           <ChevronLeft className="size-5" />
         </Button>
-        <h1 className="font-heading text-xl font-semibold">Squad</h1>
-        <span className="ml-auto flex -space-x-1.5 pr-2">
-          {MEMBERS.map((m) => (
-            <Face key={m.id} cc={m.cc} className="size-9 rounded-xl text-lg" />
-          ))}
-          <Face me className="size-9 rounded-xl" />
-        </span>
+        <h1 className="mx-auto flex h-11 min-w-0 items-center gap-2 rounded-full bg-card px-4 font-heading text-lg font-semibold">
+          <PinShape shape={pin.shape} status={pin.status} className="size-6 shrink-0" />
+          <span className="truncate">{placeById(pin.place).name.split(' ')[0]} squad</span>
+        </h1>
+        <Button variant="outline" size="icon-lg" aria-label="Squad" className="rounded-full" onClick={() => setPeople(true)}>
+          <Users className="size-5" />
+        </Button>
       </header>
 
-      <div className="no-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pt-1 pb-4">
-        <TripMap className="h-56 rounded-3xl" pin={<PinMark pin={pin} className="size-11" />} pinAt={PIN_AT} routes={squadRoutes(now, trip.arrived)} />
+      <div className="shrink-0 px-4 pb-2">
+        <TripMap live className="h-48 rounded-3xl" pin={<PinMark pin={pin} className="size-10" />} pinAt={LIVE_PIN} routes={liveRoutes(now, trip.arrived)} />
+      </div>
 
-        <Section title="Together">
-          <div className="space-y-2">
-            {group.map((b) => (
-              <GroupChallenge key={b.id} bonus={b} inFor={trip.inFor[b.id] ?? []} />
-            ))}
-          </div>
-        </Section>
-
-        <Section title="Chat">
-          <div className="space-y-3">
-            {trip.messages.map((m) => (
-              <Bubble key={m.id} message={m} pinId={pin.id} />
-            ))}
-          </div>
-        </Section>
+      <div className="no-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pt-2 pb-4">
+        {trip.messages.map((m) => (
+          <Bubble key={m.id} message={m} pinId={pin.id} inFor={m.challenge ? (trip.inFor[m.challenge] ?? []) : []} />
+        ))}
         <div ref={endRef} />
       </div>
 
-      <div className="shrink-0 space-y-2 border-t px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)]">
-        {everyone ? (
-          <Button size="lg" className="h-16 w-full animate-rise rounded-full text-lg" onClick={() => navigate(`/explore/pins/${pin.id}/capture`)}>
-            <Camera data-icon="inline-start" className="size-6" />
-            Take the photo
+      <form
+        className="flex shrink-0 items-center gap-2 px-4 pt-2 pb-[max(env(safe-area-inset-bottom),12px)]"
+        onSubmit={(e) => {
+          e.preventDefault()
+          send(draft)
+          setDraft('')
+        }}
+      >
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Message" className="h-14 min-w-0 flex-1 rounded-full bg-card px-5 text-base outline-none" />
+        <Button type="submit" size="icon-lg" aria-label="Send" disabled={!draft.trim()} className="size-14 rounded-full">
+          <SendHorizontal className="size-5" />
+        </Button>
+      </form>
+
+      {people && <SquadSheet arrived={trip.arrived} onClose={() => setPeople(false)} />}
+    </div>
+  )
+}
+
+// Who's in the squad and how far away they are
+function SquadSheet({ arrived, onClose }: { arrived: string[]; onClose: () => void }) {
+  const now = useClock()
+  const rows = [...MEMBERS.map((m) => ({ id: m.id, name: m.name, cc: m.cc, eta: m.eta, me: false })), { id: 'me', name: 'You', cc: '', eta: MY_ETA, me: true }]
+  return (
+    <>
+      <div aria-hidden onClick={onClose} className="absolute inset-0 z-40 bg-black/30" />
+      <div className="absolute inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-50 animate-rise rounded-3xl bg-background p-4 shadow-2xl">
+        <div className="flex items-center">
+          <h2 className="font-heading text-xl font-semibold">Squad</h2>
+          <Button variant="ghost" size="icon" aria-label="Close" onClick={onClose} className="ml-auto -mr-1">
+            <X className="size-5" />
           </Button>
-        ) : (
-          <>
-            <div className="no-scrollbar flex gap-2 overflow-x-auto">
-              {['Coming! 🏃', '👋', 'Almost there'].map((q) => (
-                <button key={q} type="button" onClick={() => submit(q)} className="h-10 shrink-0 rounded-full border px-4 text-sm font-medium active:scale-95">
-                  {q}
-                </button>
-              ))}
-            </div>
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                submit(draft)
-              }}
-            >
-              <input value={draft} onChange={(e) => setDraft(e.target.value)} aria-label="Message" className="h-12 min-w-0 flex-1 rounded-full bg-card px-5 text-base outline-none" />
-              <Button type="submit" size="icon-lg" aria-label="Send" disabled={!draft.trim()}>
-                <SendHorizontal />
-              </Button>
-            </form>
-          </>
-        )}
+        </div>
+        <ul className="mt-2 divide-y divide-background overflow-hidden rounded-2xl bg-card">
+          {rows.map((r) => (
+            <li key={r.id} className="flex items-center gap-3 p-3">
+              <Face cc={r.cc} me={r.me} className="ring-card" />
+              <span className="font-semibold">{r.name}</span>
+              <span className="ml-auto rounded-full bg-background px-2.5 py-0.5 text-sm font-semibold tabular-nums">
+                {arrived.includes(r.id) ? 'Here' : `${minutesLeft(now, r.eta)} min`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
+  )
+}
+
+function Bubble({ message, pinId, inFor }: { message: Message; pinId: string; inFor: string[] }) {
+  const me = message.from === 'me'
+  const member = memberById(message.from)
+  const { solo, group } = challengesFor(pinId)
+  const challenge = message.challenge ? [...solo, ...group].find((b) => b.id === message.challenge) : undefined
+  return (
+    <div className={cn('flex animate-rise items-end gap-2', me && 'flex-row-reverse')}>
+      {!me && <Face cc={member?.cc} className="size-9 rounded-xl text-lg" />}
+      <div className={cn('flex max-w-[78%] flex-col gap-2', me && 'items-end')}>
+        {message.text && <p className={cn('rounded-3xl px-4 py-2.5 text-base leading-snug', me ? 'bg-foreground text-background' : 'bg-card')}>{message.text}</p>}
+        {challenge && <ChallengeCard bonus={challenge} inFor={inFor} />}
       </div>
     </div>
   )
 }
 
-// A challenge to do together: who's in, and your own I'm in
-function GroupChallenge({ bonus, inFor }: { bonus: Bonus; inFor: string[] }) {
-  const Icon = bonusIcon[bonus.kind]
+// A challenge someone put to the squad: who's in, and your own I'm in
+function ChallengeCard({ bonus, inFor }: { bonus: Bonus; inFor: string[] }) {
   const mine = inFor.includes('me')
   return (
-    <div className={cn('flex items-center gap-3 rounded-3xl p-3', inFor.length ? 'border-2 border-foreground' : 'bg-card')}>
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-card">
-        <Icon className="size-6" strokeWidth={1.75} />
+    <div className="flex w-60 flex-col items-center rounded-3xl border-2 border-foreground p-4 text-center">
+      <span className="flex size-14 items-center justify-center rounded-2xl bg-card">
+        <Users className="size-7" strokeWidth={1.75} />
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="leading-tight font-semibold">{bonusTitle(bonus)}</p>
-        <span className="mt-1 flex items-center gap-2">
-          <Torches n={BONUS_REWARD.together} />
-          <span className="flex -space-x-1">
-            {inFor.map((who) => (who === 'me' ? <Face key={who} me className="size-6 rounded-lg text-[8px]" /> : <Face key={who} cc={memberById(who)?.cc} className="size-6 rounded-lg text-xs" />))}
-          </span>
+      <p className="mt-3 font-heading text-lg leading-tight font-semibold">{bonusTitle(bonus)}</p>
+      <div className="mt-2 flex items-center gap-2">
+        <Torches n={BONUS_REWARD.together} />
+        <span className="flex -space-x-1.5">
+          {inFor.map((who) =>
+            who === 'me' ? <Face key={who} me className="size-7 rounded-lg text-[9px]" /> : <Face key={who} cc={memberById(who)?.cc} className="size-7 rounded-lg text-sm" />,
+          )}
         </span>
       </div>
-      <Button size="lg" variant={mine ? 'secondary' : 'default'} className="h-11 rounded-full" onClick={() => toggleIn(bonus.id)}>
+      <Button size="lg" variant={mine ? 'secondary' : 'default'} className="mt-3 h-12 w-full rounded-full text-base" onClick={() => toggleIn(bonus.id)}>
         {mine && <Check data-icon="inline-start" />}
         {mine ? 'In' : 'I’m in'}
       </Button>
@@ -324,30 +375,24 @@ function GroupChallenge({ bonus, inFor }: { bonus: Bonus; inFor: string[] }) {
   )
 }
 
-function Bubble({ message, pinId }: { message: Message; pinId: string }) {
-  if (message.from === 'system') {
-    return (
-      <p className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-card px-3 py-1 text-xs font-medium">
-        {MEMBERS.map((m) => flag(m.cc)).join(' ')} {message.text}
-      </p>
-    )
-  }
-  const me = message.from === 'me'
-  const member = memberById(message.from)
-  const { solo, group } = challengesFor(pinId)
-  const title = message.challenge ? [...solo, ...group].find((b) => b.id === message.challenge) : undefined
+// ---- Everyone's here: full screen ----
+
+function Together({ pin }: { pin: Pin }) {
+  const navigate = useNavigate()
   return (
-    <div className={cn('flex animate-rise items-end gap-2', me && 'flex-row-reverse')}>
-      {!me && <Face cc={member?.cc} className="size-8 rounded-xl text-base" />}
-      <div className={cn('flex max-w-[78%] flex-col gap-1', me && 'items-end')}>
-        {message.text && <p className={cn('rounded-2xl px-3.5 py-2 text-[15px] leading-snug', me ? 'bg-foreground text-background' : 'bg-card')}>{message.text}</p>}
-        {title && (
-          <span className="flex w-fit items-center gap-1.5 rounded-full border-2 border-foreground px-3 py-1 text-sm font-semibold">
-            <Users className="size-4" />
-            {bonusTitle(title)}
-          </span>
-        )}
+    <div className="flex h-dvh flex-col items-center bg-background px-5 pt-[env(safe-area-inset-top)] pb-[max(env(safe-area-inset-bottom),16px)] text-center">
+      <div className="flex flex-1 flex-col items-center justify-center">
+        <div className="flex -space-x-3">
+          {MEMBERS.map((m, i) => (
+            <Face key={m.id} cc={m.cc} className="size-20 animate-pop rounded-[1.6rem] text-4xl ring-4" style={{ animationDelay: `${i * 120}ms` }} />
+          ))}
+          <Face me className="size-20 animate-pop rounded-[1.6rem] text-lg ring-4" style={{ animationDelay: `${MEMBERS.length * 120}ms` }} />
+        </div>
+        <h1 className="mt-8 font-heading text-4xl leading-tight font-semibold">You are all here!</h1>
       </div>
+      <Button size="lg" className="h-16 w-full rounded-full text-lg" onClick={() => navigate(`/explore/pins/${pin.id}/capture`)}>
+        Start
+      </Button>
     </div>
   )
 }

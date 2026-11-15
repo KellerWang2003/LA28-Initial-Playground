@@ -4,12 +4,12 @@ import { bonusesFor, type Bonus } from '@/data/bonuses'
 import { nowMs } from '@/lib/clock'
 import { moveFan } from '@/lib/location'
 
-// Find a squad: from a pin's detail page, before you get there. Matchmaking runs in an
-// overlay while you keep browsing, finds fans heading to the same pin, and offers you the
-// squad. Only once you join does the squad get its own page: everyone's route and ETA,
-// the challenges to do together, and the chat. In-memory only.
+// Heading to a pin, and finding a squad on the way. Directions on the pin's page starts the
+// trip: the page shows your route. Matchmake is a small pill: it searches while you keep
+// browsing, then says it found a squad. The squad opens full screen, and once you join it
+// gets a chat with everyone's live location, until you're all there. In-memory only.
 
-export type Step = 'idle' | 'matching' | 'offer' | 'squad'
+export type Step = 'idle' | 'onTheWay' | 'matching' | 'offer' | 'squad'
 
 export type Member = {
   id: string
@@ -26,6 +26,7 @@ export type Member = {
 export const MEMBERS: Member[] = [
   { id: 'lina', name: 'Lina', cc: 'MX', city: 'Mexico City', eta: 8, from: [16, 30] },
   { id: 'hana', name: 'Hana', cc: 'JP', city: 'Osaka', eta: 15, from: [86, 70] },
+  { id: 'theo', name: 'Théo', cc: 'FR', city: 'Lyon', eta: 10, from: [90, 12] },
 ]
 export const memberById = (id: string) => MEMBERS.find((m) => m.id === id)
 
@@ -136,37 +137,31 @@ export function progressOf(now: number, eta: number) {
 
 // ---- Actions ----
 
-// A new pin starts fresh; the same pin keeps the trip you're on
-export function openOnMyWay(pinId: string) {
-  if (state.pinId === pinId) return
+// Directions: you're on your way, and the pin page shows your route
+export function startTrip(pinId: string) {
+  if (state.pinId === pinId && state.step !== 'idle') return
   clearTimers()
-  update(initial(pinId))
+  update({ ...initial(pinId), step: 'onTheWay', startedAt: nowMs() })
 }
 
-// Find a squad: matchmaking runs while you head there
+// Matchmake: searches while you head there (starting the trip if you hadn't yet)
 export function startMatching(pinId: string) {
+  startTrip(pinId)
   clearTimers()
-  update({ ...initial(pinId), step: 'matching', startedAt: nowMs() })
+  update({ step: 'matching' })
   later(5200, matched)
 }
 
-// Stop matching, or pass on the squad offered
+// Stop matching, or not now on the squad found: you're still on your way
 export function cancelMatching() {
   clearTimers()
-  update({ step: 'idle', startedAt: null })
+  update({ step: 'onTheWay' })
 }
 
 // Join the squad offered: it gets its own page, and the chat starts
 export function joinSquad() {
   update({ step: 'squad' })
   seedChat(true)
-}
-
-// Shake the phone (or tap the shake button): match with whoever is close, right away
-export function shakeToMatch() {
-  if (state.step !== 'matching') return
-  clearTimers()
-  matched()
 }
 
 function matched() {
@@ -192,12 +187,12 @@ export function toggleIn(challenge: string) {
 function seedChat(live: boolean) {
   const at = (ms: number, fn: () => void) => (live ? later(ms, fn) : fn())
   const group = firstGroup()
-  say('system', 'Lina and Hana joined')
-  at(1400, () => say('lina', 'Hola! 👋'))
-  at(3200, () => say('hana', 'Let’s do this challenge!', group))
-  at(3800, () => join(group, 'hana'))
-  at(5200, () => join(group, 'lina'))
-  at(6400, () => say('lina', 'Coming! 🏃‍♀️'))
+  at(800, () => say('lina', 'Hola! 👋'))
+  at(2400, () => say('hana', 'Let’s do this challenge!', group))
+  at(3000, () => join(group, 'hana'))
+  at(4200, () => join(group, 'lina'))
+  at(5000, () => join(group, 'theo'))
+  at(6000, () => say('theo', 'Coming! 🏃'))
 }
 
 // Someone gets there: says so in the chat, once
@@ -227,7 +222,7 @@ export function send(text: string) {
 
 // ---- Flow gallery jumps ----
 
-export type SquadJump = 'idle' | 'matching' | 'offer' | 'squad' | 'arrived'
+export type SquadJump = 'idle' | 'onTheWay' | 'matching' | 'offer' | 'squad' | 'arrived'
 
 export function stageSquad(jump: SquadJump) {
   clearTimers()
@@ -235,10 +230,14 @@ export function stageSquad(jump: SquadJump) {
   moveFan(null)
   update(initial(DEMO_PIN))
   if (jump === 'idle') return
-  if (jump === 'matching') return startMatching(DEMO_PIN)
+  if (jump === 'matching') {
+    startMatching(DEMO_PIN)
+    update({ startedAt: nowMs() - 2 * DEMO_MINUTE_MS })
+    return
+  }
   // Start a few demo minutes in so routes have moved
   update({ step: jump === 'arrived' ? 'squad' : jump, startedAt: nowMs() - (jump === 'arrived' ? 16 : 2) * DEMO_MINUTE_MS })
-  if (jump === 'offer') return
+  if (jump === 'onTheWay' || jump === 'offer') return
   seedChat(false)
   toggleIn(firstGroup())
 }
