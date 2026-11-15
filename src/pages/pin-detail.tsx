@@ -57,7 +57,7 @@ function PinDetail({ pin }: { pin: Pin }) {
   const average = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
   const done = collected.includes(pin.id)
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}`
-  // Not there yet: Directions (hands off to Maps) and Matchmake
+  // Not there yet: Directions and Matchmake, both opening the route
   const away = !done && !locked && !atPlace
 
   return (
@@ -187,7 +187,7 @@ function PinDetail({ pin }: { pin: Pin }) {
       </div>
 
       {away ? (
-        <AwayBar pin={pin} directions={directions} />
+        <AwayBar pin={pin} />
       ) : (
         <CollectPanel pin={pin} placeName={place.name} collected={done} onCollect={() => navigate(`/explore/pins/${pin.id}/capture`)} />
       )}

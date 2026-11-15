@@ -6,6 +6,7 @@ import { SaveButton } from '@/components/save-sheet'
 import ExplorePage from '@/pages/explore'
 import PinCapturePage from '@/pages/pin-capture'
 import SquadRoute from '@/pages/squad'
+import PinRoutePage from '@/pages/pin-route'
 import WatchPartiesPage, { WatchPartyPage, WatchPartyPlayPage } from '@/pages/watch-parties'
 import PinDetailPage from '@/pages/pin-detail'
 import BonusPage from '@/pages/bonus'
@@ -56,6 +57,7 @@ function App() {
       {/* Pushed screens */}
       <Route path="explore/pins/:pinId" element={<PinDetailPage />} />
       <Route path="explore/pins/:pinId/capture" element={<PinCapturePage />} />
+      <Route path="explore/pins/:pinId/route" element={<PinRoutePage />} />
       <Route path="explore/pins/:pinId/squad" element={<SquadRoute />} />
       <Route path="explore/pins/:pinId/bonus/:bonusId" element={<BonusPage />} />
       <Route path="passport" element={<PassportPage />} />

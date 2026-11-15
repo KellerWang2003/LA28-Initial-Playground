@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router'
-import { Check, ChevronLeft, ChevronRight, Flame, Navigation, SendHorizontal, User, Users, X } from 'lucide-react'
+import { Camera, Check, ChevronLeft, ChevronRight, Flame, Navigation, SendHorizontal, User, Users, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PinShape } from '@/components/pin-art'
-import { flag, placeById, type Pin } from '@/data/la28'
+import { activityAt, flag, placeById, type Pin } from '@/data/la28'
 import { BONUS_REWARD, bonusTitle, bonusType, type Bonus } from '@/data/bonuses'
 import { bonusIcon } from '@/lib/bonuses'
 import { useClock } from '@/lib/clock'
+import { useAtPlace } from '@/lib/location'
 import { cn } from '@/lib/utils'
 import {
   ME_FROM,
@@ -17,9 +18,11 @@ import {
   joinSquad,
   memberById,
   minutesLeft,
+  PIN_AT,
   progressOf,
   send,
   startMatching,
+  startTrip,
   toggleIn,
   useOnMyWay,
   type Message,
@@ -89,61 +92,147 @@ function ChallengeTile({ bonus }: { bonus: Bonus }) {
   )
 }
 
-// Not there yet: a small Matchmake pill over one wide button. The pill searches while you
-// keep browsing the page, then turns into the squad it found.
-export function AwayBar({ pin, directions }: { pin: Pin; directions: string }) {
+// The small Matchmake pill: searches while you keep going, then turns into the squad
+function MatchPill({ pin, onStart }: { pin: Pin; onStart: () => void }) {
   const navigate = useNavigate()
   const trip = useOnMyWay()
   const step = trip.pinId === pin.id ? trip.step : 'idle'
 
+  if (step === 'offer' || step === 'squad') {
+    return (
+      <button
+        type="button"
+        onClick={() => navigate(`/explore/pins/${pin.id}/squad`)}
+        className="flex h-14 animate-pop items-center gap-3 rounded-full bg-foreground pr-3 pl-5 text-background shadow-xl active:scale-95"
+      >
+        <span className="font-heading text-lg font-semibold">{step === 'offer' ? 'Squad found' : 'Your squad'}</span>
+        <span className="flex -space-x-2">
+          {MEMBERS.map((m) => (
+            <Face key={m.id} cc={m.cc} className="size-9 rounded-xl text-lg ring-foreground" />
+          ))}
+        </span>
+        <ChevronRight className="size-5" />
+      </button>
+    )
+  }
+  if (step === 'matching') {
+    return (
+      <span className="flex h-12 items-center gap-2 rounded-full border bg-background pr-1.5 pl-5 shadow-lg">
+        <span className="font-semibold">Matchmaking</span>
+        <span className="flex gap-1" aria-hidden>
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="size-1.5 animate-pulse rounded-full bg-foreground" style={{ animationDelay: `${i * 200}ms` }} />
+          ))}
+        </span>
+        <Button variant="ghost" size="icon" aria-label="Stop" onClick={cancelMatching} className="ml-1 rounded-full">
+          <X className="size-4" />
+        </Button>
+      </span>
+    )
+  }
+  return (
+    <button type="button" onClick={onStart} className="flex h-12 items-center gap-2 rounded-full border bg-background pr-2 pl-5 shadow-lg active:scale-95">
+      <span className="font-semibold">Matchmake</span>
+      <span className="flex -space-x-1.5" aria-hidden>
+        {[0, 1, 2].map((i) => (
+          <span key={i} className="size-7 rounded-xl border-2 border-dashed border-muted-foreground/50 bg-background" />
+        ))}
+      </span>
+    </button>
+  )
+}
+
+// Not there yet, on the pin page: the Matchmake pill over Directions. Both open the route.
+export function AwayBar({ pin }: { pin: Pin }) {
+  const navigate = useNavigate()
+  const route = `/explore/pins/${pin.id}/route`
   return (
     <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col items-center gap-3 bg-gradient-to-t from-background via-background/95 to-transparent px-4 pt-10 pb-[max(env(safe-area-inset-bottom),16px)]">
-      {step === 'offer' ? (
-        <button
-          type="button"
-          onClick={() => navigate(`/explore/pins/${pin.id}/squad`)}
-          className="flex h-14 animate-pop items-center gap-3 rounded-full bg-foreground pr-3 pl-5 text-background shadow-xl active:scale-95"
-        >
-          <span className="font-heading text-lg font-semibold">Squad found</span>
-          <span className="flex -space-x-2">
-            {MEMBERS.map((m) => (
-              <Face key={m.id} cc={m.cc} className="size-9 rounded-xl text-lg ring-foreground" />
-            ))}
-          </span>
-          <ChevronRight className="size-5" />
-        </button>
-      ) : step === 'matching' ? (
-        <span className="flex h-12 items-center gap-2 rounded-full border bg-background pr-1.5 pl-5 shadow-lg">
-          <span className="font-semibold">Matchmaking</span>
-          <span className="flex gap-1" aria-hidden>
-            {[0, 1, 2].map((i) => (
-              <span key={i} className="size-1.5 animate-pulse rounded-full bg-foreground" style={{ animationDelay: `${i * 200}ms` }} />
-            ))}
-          </span>
-          <Button variant="ghost" size="icon" aria-label="Stop" onClick={cancelMatching} className="ml-1 rounded-full">
-            <X className="size-4" />
-          </Button>
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={() => startMatching(pin.id)}
-          className="flex h-12 items-center gap-2 rounded-full border bg-background pr-2 pl-5 shadow-lg active:scale-95"
-        >
-          <span className="font-semibold">Matchmake</span>
-          <span className="flex -space-x-1.5" aria-hidden>
-            {[0, 1, 2].map((i) => (
-              <span key={i} className="size-7 rounded-xl border-2 border-dashed border-muted-foreground/50 bg-background" />
-            ))}
-          </span>
-        </button>
-      )}
-
-      {/* Directions hand off to the fan's maps app; the app doesn't route */}
-      <Button size="lg" className="h-16 w-full rounded-full text-lg" nativeButton={false} render={<a href={directions} target="_blank" rel="noreferrer" />}>
+      <MatchPill
+        pin={pin}
+        onStart={() => {
+          startMatching(pin.id)
+          navigate(route)
+        }}
+      />
+      <Button
+        size="lg"
+        className="h-16 w-full rounded-full text-lg"
+        onClick={() => {
+          startTrip(pin.id)
+          navigate(route)
+        }}
+      >
         <Navigation data-icon="inline-start" className="size-6" />
         Directions
       </Button>
+    </div>
+  )
+}
+
+// ---- The route: bare-bones directions, and who else is on their way ----
+
+export function RouteScreen({ pin }: { pin: Pin }) {
+  const navigate = useNavigate()
+  const trip = useOnMyWay()
+  const now = useClock()
+  const here = useAtPlace(pin.place)
+  const place = placeById(pin.place)
+  const heading = activityAt(place.id)?.headingThere
+  const matched = trip.step === 'offer' || trip.step === 'squad'
+  // Fans on their way to the same pin; once you're matched, they're your squad
+  const others: Route[] = MEMBERS.map((m) => ({
+    id: m.id,
+    face: matched ? flag(m.cc) : <User className="size-5 text-muted-foreground" />,
+    from: m.from,
+    progress: progressOf(now, m.eta),
+  }))
+  const me: Route = { id: 'me', me: true, face: 'You', from: ME_FROM, progress: progressOf(now, MY_ETA), tag: `${minutesLeft(now, MY_ETA)} min` }
+
+  return (
+    <div className="relative flex h-dvh flex-col bg-background">
+      <div className="relative min-h-0 flex-1">
+        <TripMap className="absolute inset-0" pin={<PinMark pin={pin} />} pinAt={PIN_AT} routes={[...others, me]} searching={trip.step === 'matching'} />
+        <Button
+          variant="outline"
+          size="icon-lg"
+          aria-label="Back"
+          onClick={() => navigate(`/explore/pins/${pin.id}`)}
+          className="absolute top-[calc(env(safe-area-inset-top)+12px)] left-4 rounded-full bg-background"
+        >
+          <ChevronLeft className="size-5" />
+        </Button>
+        {heading && (
+          <span className="absolute top-[calc(env(safe-area-inset-top)+16px)] right-4 flex items-center gap-1.5 rounded-full bg-background px-3 py-1.5 font-semibold tabular-nums shadow-sm">
+            <Users className="size-4" />
+            {heading}
+          </span>
+        )}
+      </div>
+
+      <div className="relative z-10 -mt-8 shrink-0 rounded-t-[2rem] bg-background pt-5 shadow-[0_-8px_24px_rgb(0_0_0/0.06)]">
+        <div className="px-4">
+          <h1 className="mb-3 flex items-center gap-2 font-heading text-2xl font-semibold">
+            <PinShape shape={pin.shape} status={pin.status} className="size-8 shrink-0" />
+            <span className="truncate">{place.name}</span>
+          </h1>
+          <ChallengeRow pinId={pin.id} />
+        </div>
+        <div className="flex flex-col items-center gap-3 px-4 pt-4 pb-[max(env(safe-area-inset-bottom),16px)]">
+          <MatchPill pin={pin} onStart={() => startMatching(pin.id)} />
+          {here ? (
+            <Button size="lg" className="h-16 w-full rounded-full text-lg" onClick={() => navigate(`/explore/pins/${pin.id}/capture`)}>
+              <Camera data-icon="inline-start" className="size-6" />
+              I’m here
+            </Button>
+          ) : (
+            <Button size="lg" variant="secondary" disabled className="h-16 w-full rounded-full text-lg disabled:opacity-100">
+              Not here yet
+              <span className="ml-1 rounded-full bg-background px-2.5 py-0.5 text-base tabular-nums">{minutesLeft(now, MY_ETA)} min</span>
+            </Button>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -186,7 +275,7 @@ export function YourSquad({ pin }: { pin: Pin }) {
           className="h-12 rounded-full px-6 text-base"
           onClick={() => {
             cancelMatching()
-            navigate(`/explore/pins/${pin.id}`, { replace: true })
+            navigate(`/explore/pins/${pin.id}/route`, { replace: true })
           }}
         >
           Not now
@@ -227,7 +316,7 @@ export function SquadChat({ pin }: { pin: Pin }) {
   return (
     <div className="relative flex h-dvh flex-col bg-background pt-[env(safe-area-inset-top)]">
       <header className="flex h-16 shrink-0 items-center gap-2 px-3">
-        <Button variant="outline" size="icon-lg" aria-label="Back" className="rounded-full" onClick={() => navigate(`/explore/pins/${pin.id}`)}>
+        <Button variant="outline" size="icon-lg" aria-label="Back" className="rounded-full" onClick={() => navigate(`/explore/pins/${pin.id}/route`)}>
           <ChevronLeft className="size-5" />
         </Button>
         <h1 className="mx-auto flex h-11 min-w-0 items-center gap-2 rounded-full bg-card px-4 font-heading text-lg font-semibold">
