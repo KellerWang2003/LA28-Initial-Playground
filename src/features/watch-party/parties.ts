@@ -78,3 +78,15 @@ export function goTo(id: string | null) {
   going = id
   listeners.forEach((l) => l())
 }
+
+// ---- How the crowd pin's border is painted (exploring two looks) ----
+
+export type PinLook = 'sweep' | 'splash'
+let look: PinLook = 'sweep'
+
+export const useCrowdPinLook = () => useSyncExternalStore(subscribe, () => look)
+
+export function setCrowdPinLook(next: PinLook) {
+  look = next
+  listeners.forEach((l) => l())
+}

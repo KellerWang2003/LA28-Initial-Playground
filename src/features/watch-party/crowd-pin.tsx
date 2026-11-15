@@ -3,82 +3,136 @@ import { ShapeIcon } from '@/components/shape-art'
 import type { Shape } from '@/data/la28'
 import { cn } from '@/lib/utils'
 import type { Person } from './crowd'
+import { useCrowdPinLook, type PinLook } from './parties'
 
-// Who's going, as the party's pin: its silhouette filled with a soft gradient of the crowd's
-// colors, each country's colors taking up as much of it as its share of the crowd. It reads
-// as a mix, not a count. Tap it to see the crowd in detail.
+// Who's going, as the party's pin: a thick border painted with the crowd's colors (the three
+// biggest groups), with the inside left blank for the pin's own art. Two looks for now: one
+// clean sweep, or splashes. It reads as a mix, not a count. Tap it to see the crowd in detail.
 
-// A country's colors, from its flag
+// One clean color per country, then a second to fall back on when the first is taken
 const COLORS: Record<string, string[]> = {
-  BR: ['#16a34a', '#facc15'],
-  MA: ['#dc2626', '#0f7a3c'],
-  US: ['#2563eb', '#ef4444'],
-  MX: ['#059669', '#e11d48'],
-  FR: ['#1d4ed8', '#f43f5e'],
+  BR: ['#22c55e', '#facc15'],
+  MA: ['#ef4444', '#16a34a'],
+  US: ['#3b82f6', '#ef4444'],
+  MX: ['#10b981', '#ef4444'],
+  FR: ['#2563eb', '#ef4444'],
   JP: ['#f43f5e'],
   KR: ['#3b82f6', '#ef4444'],
-  GB: ['#1e3a8a', '#dc2626'],
-  AR: ['#7dd3fc', '#fde047'],
-  DZ: ['#16a34a'],
-  ES: ['#f59e0b', '#dc2626'],
-  CO: ['#facc15', '#1d4ed8'],
-  PT: ['#15803d', '#dc2626'],
+  GB: ['#2563eb', '#ef4444'],
+  AR: ['#38bdf8', '#facc15'],
+  DZ: ['#16a34a', '#ef4444'],
+  ES: ['#f59e0b', '#ef4444'],
+  CO: ['#facc15', '#2563eb'],
+  PT: ['#16a34a', '#ef4444'],
 }
-const OTHER = ['#a3a3a3']
 
-type Blob = { x: number; y: number; r: number; color: string }
+function hsl(hex: string): [number, number, number] {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const d = max - min
+  const l = (max + min) / 2
+  if (d === 0) return [0, 0, l * 100]
+  const sat = d / (1 - Math.abs(2 * l - 1))
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return [(h * 60 + 360) % 360, sat * 100, l * 100]
+}
+const hue = (hex: string) => hsl(hex)[0]
 
-// Bigger groups get bigger, more central blobs; positions are fixed so a party always looks the same
-function blobsFor(people: Person[]): Blob[] {
+// Stops from one color to the next that travel around the color wheel instead of straight
+// through it, so red to green passes orange and yellow, not brown
+function sweepStops(three: string[]) {
+  // The two farthest apart go at the ends, so each step is a short one
+  const gap = (x: string, y: string) => {
+    const d = Math.abs(hue(x) - hue(y))
+    return Math.min(d, 360 - d)
+  }
+  const [x, y, z] = three
+  const ends = [[x, z, y], [x, y, z], [y, x, z]].sort((p, q) => gap(q[0], q[2]) - gap(p[0], p[2]))[0]
+  const colors = ends
+  const stops: { offset: number; color: string }[] = []
+  const STEPS = 6
+  colors.slice(0, -1).forEach((from, i) => {
+    const [h1, s1, l1] = hsl(from)
+    const [h2, s2, l2] = hsl(colors[i + 1])
+    const dh = ((h2 - h1 + 540) % 360) - 180
+    for (let k = 0; k <= STEPS; k++) {
+      if (i > 0 && k === 0) continue
+      const t = k / STEPS
+      stops.push({
+        offset: (i + t) / (colors.length - 1),
+        color: `hsl(${(h1 + dh * t + 360) % 360} ${s1 + (s2 - s1) * t}% ${l1 + (l2 - l1) * t}%)`,
+      })
+    }
+  })
+  return stops
+}
+const apart = (a: string, b: string) => {
+  const d = Math.abs(hue(a) - hue(b))
+  return Math.min(d, 360 - d) >= 45
+}
+
+// The three biggest groups' colors, kept far enough apart to stay clean
+function crowdColors(people: Person[]): string[] {
   const counts = new Map<string, number>()
   people.forEach((p) => counts.set(p.cc, (counts.get(p.cc) ?? 0) + 1))
-  const ranked = [...counts].sort((a, b) => b[1] - a[1])
-  const blobs: Blob[] = []
-  ranked.forEach(([cc, n], i) => {
-    const share = n / people.length
-    const colors = COLORS[cc] ?? OTHER
-    colors.forEach((color, k) => {
-      const j = blobs.length
-      const angle = j * 2.39996 + 0.6
-      const dist = 2.5 + (i === 0 ? 0 : 3 + (j % 3) * 2.2)
-      blobs.push({
-        x: 12 + Math.cos(angle) * dist,
-        y: 13 + Math.sin(angle) * dist,
-        r: (3 + Math.sqrt(share) * 12) / (k === 0 ? 1 : 1.35),
-        color,
-      })
-    })
-  })
-  return blobs
+  const picked: string[] = []
+  for (const [cc] of [...counts].sort((a, b) => b[1] - a[1])) {
+    const color = (COLORS[cc] ?? []).find((c) => picked.every((p) => apart(p, c)))
+    if (color) picked.push(color)
+    if (picked.length === 3) break
+  }
+  for (const fallback of ['#3b82f6', '#ef4444', '#facc15']) if (picked.length < 3 && picked.every((p) => apart(p, fallback))) picked.push(fallback)
+  return picked
 }
 
-export function CrowdPin({ shape, people, className }: { shape: Shape; people: Person[]; className?: string }) {
+// Where the splashes land, in the pin's 24-unit box
+const SPOTS = [
+  { x: 4, y: 20, r: 13 },
+  { x: 21, y: 6, r: 12 },
+  { x: 20, y: 22, r: 9 },
+]
+
+export function CrowdPin({ shape, people, look: forced, className }: { shape: Shape; people: Person[]; look?: PinLook; className?: string }) {
   const id = useId().replace(/:/g, '')
-  const blobs = blobsFor(people)
+  const current = useCrowdPinLook()
+  const look = forced ?? current
+  const [a, b, c] = crowdColors(people)
   return (
     <span className={cn('relative inline-block shrink-0', className)} aria-hidden>
       {/* The die-cut white edge, like every pin */}
-      <ShapeIcon shape={shape} strokeWidth={7} className="absolute inset-0 size-full fill-background text-background drop-shadow-md" />
+      <ShapeIcon shape={shape} strokeWidth={8} className="absolute inset-0 size-full overflow-visible text-background drop-shadow-md" />
       <svg viewBox="0 0 24 24" className="absolute inset-0 size-full overflow-visible">
         <defs>
-          <mask id={`m${id}`} maskUnits="userSpaceOnUse" x="-4" y="-4" width="32" height="32">
-            <ShapeIcon shape={shape} strokeWidth={4.5} className="fill-white text-white" />
+          <mask id={`m${id}`} maskUnits="userSpaceOnUse" x="-6" y="-6" width="36" height="36">
+            <ShapeIcon shape={shape} strokeWidth={4} className="overflow-visible text-white" />
           </mask>
-          <filter id={`f${id}`} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="2.4" />
-          </filter>
+          <linearGradient id={`l${id}`} gradientUnits="userSpaceOnUse" x1="4" y1="4" x2="20" y2="20">
+            {sweepStops([a, b, c]).map((st) => (
+              <stop key={st.offset} offset={st.offset} stopColor={st.color} />
+            ))}
+          </linearGradient>
+          {SPOTS.map((s, i) => (
+            <radialGradient key={i} id={`r${id}${i}`} gradientUnits="userSpaceOnUse" cx={s.x} cy={s.y} r={s.r}>
+              <stop offset="0" stopColor={[a, b, c][i]} />
+              <stop offset="0.82" stopColor={[a, b, c][i]} />
+              <stop offset="1" stopColor={[a, b, c][i]} stopOpacity="0" />
+            </radialGradient>
+          ))}
         </defs>
         <g mask={`url(#m${id})`}>
-          <rect x="-4" y="-4" width="32" height="32" fill={blobs[0]?.color ?? OTHER[0]} />
-          <g filter={`url(#f${id})`}>
-            {blobs.map((b, i) => (
-              <circle key={i} cx={b.x} cy={b.y} r={b.r} fill={b.color} />
-            ))}
-          </g>
+          {look === 'sweep' ? (
+            <rect x="-6" y="-6" width="36" height="36" fill={`url(#l${id})`} />
+          ) : (
+            <>
+              <rect x="-6" y="-6" width="36" height="36" fill={b} />
+              {SPOTS.map((s, i) => (
+                <circle key={i} cx={s.x} cy={s.y} r={s.r} fill={`url(#r${id}${i})`} />
+              ))}
+            </>
+          )}
         </g>
       </svg>
-      {/* The pin's own lines on top, so it still reads as its shape */}
-      <ShapeIcon shape={shape} strokeWidth={1.25} className="absolute inset-0 size-full text-white/85" />
     </span>
   )
 }
