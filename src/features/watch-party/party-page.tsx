@@ -57,7 +57,7 @@ export function PartyPage({ party }: { party: Party }) {
               </button>
               <h1
                 className={cn(
-                  '-mt-3 flex h-11 max-w-full items-center gap-1.5 truncate rounded-full border px-4 font-heading text-base font-semibold',
+                  'relative z-10 -mt-3 flex h-11 max-w-full items-center gap-1.5 truncate rounded-full border px-4 font-heading text-base font-semibold',
                   here ? 'border-foreground bg-foreground text-background' : 'bg-background',
                 )}
               >
