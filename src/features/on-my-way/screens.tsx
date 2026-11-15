@@ -12,7 +12,6 @@ import {
   ME_FROM,
   MEMBERS,
   MY_ETA,
-  PIN_AT,
   cancelMatching,
   challengesFor,
   joinSquad,
@@ -21,7 +20,6 @@ import {
   progressOf,
   send,
   startMatching,
-  startTrip,
   toggleIn,
   useOnMyWay,
   type Message,
@@ -91,38 +89,11 @@ function ChallengeTile({ bonus }: { bonus: Bonus }) {
   )
 }
 
-// Fans around while matchmaking
-const NEARBY: [number, number][] = [
-  [18, 26],
-  [84, 40],
-  [78, 72],
-  [44, 58],
-]
-
-// On your way: your route takes the place of the photos at the top of the pin page
-export function TripHero({ pin, className }: { pin: Pin; className?: string }) {
-  const trip = useOnMyWay()
-  const now = useClock()
-  const searching = trip.step === 'matching' || trip.step === 'offer'
-  const me: Route = { id: 'me', me: true, face: 'You', from: ME_FROM, progress: progressOf(now, MY_ETA), tag: `${minutesLeft(now, MY_ETA)} min` }
-  return (
-    <TripMap
-      className={className}
-      pin={<PinMark pin={pin} />}
-      pinAt={PIN_AT}
-      routes={[me]}
-      searching={trip.step === 'matching'}
-      nearby={searching ? NEARBY : undefined}
-    />
-  )
-}
-
 // Not there yet: a small Matchmake pill over one wide button. The pill searches while you
 // keep browsing the page, then turns into the squad it found.
-export function AwayBar({ pin }: { pin: Pin }) {
+export function AwayBar({ pin, directions }: { pin: Pin; directions: string }) {
   const navigate = useNavigate()
   const trip = useOnMyWay()
-  const now = useClock()
   const step = trip.pinId === pin.id ? trip.step : 'idle'
 
   return (
@@ -168,17 +139,11 @@ export function AwayBar({ pin }: { pin: Pin }) {
         </button>
       )}
 
-      {step === 'idle' ? (
-        <Button size="lg" className="h-16 w-full rounded-full text-lg" onClick={() => startTrip(pin.id)}>
-          <Navigation data-icon="inline-start" className="size-6" />
-          Directions
-        </Button>
-      ) : (
-        <Button size="lg" variant="secondary" disabled className="h-16 w-full rounded-full text-lg disabled:opacity-100">
-          Not here yet
-          <span className="ml-1 rounded-full bg-background px-2.5 py-0.5 text-base tabular-nums">{minutesLeft(now, MY_ETA)} min</span>
-        </Button>
-      )}
+      {/* Directions hand off to the fan's maps app; the app doesn't route */}
+      <Button size="lg" className="h-16 w-full rounded-full text-lg" nativeButton={false} render={<a href={directions} target="_blank" rel="noreferrer" />}>
+        <Navigation data-icon="inline-start" className="size-6" />
+        Directions
+      </Button>
     </div>
   )
 }
