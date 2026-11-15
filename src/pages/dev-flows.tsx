@@ -12,7 +12,7 @@ import { setDebug, type DebugState } from '@/lib/debug'
 import { debugMoments } from '@/features/crowdplay/schedule'
 import { stageKeepGoing, type KeepStage } from '@/features/activity/keep-going-state'
 import { moveFan } from '@/lib/location'
-import { stageOnMyWay } from '@/features/on-my-way/state'
+import { stageSquad } from '@/features/on-my-way/state'
 import { goTo } from '@/features/watch-party/parties'
 import { pinById, placeById } from '@/data/la28'
 import { BONUSES, bonusById, bonusKindTitle, type Bonus, type BonusKind } from '@/data/bonuses'
@@ -90,13 +90,14 @@ const keepGoing: Jump[] = [
   { title: 'Vote closed', detail: 'The plan, and the person you got talking to', to: '/events/keep-going', debug: AFTER_SWIM, keep: 'decided' },
 ]
 
-// On my way: matchmaking on the way to a pin, the squad, and the team chat
-const onMyWay: Jump[] = [
-  { title: 'Pin with On my way', detail: 'Griffith Observatory · challenges and one button', to: '/explore/pins/p_griffith/on-my-way', debug: ON_TIME, setup: () => stageOnMyWay('pin') },
-  { title: 'Matchmaking', detail: 'Your route, the radar, Shake', to: '/explore/pins/p_griffith/on-my-way', debug: ON_TIME, setup: () => stageOnMyWay('matching') },
-  { title: 'Squad found', detail: 'Everyone’s route and ETA', to: '/explore/pins/p_griffith/on-my-way', debug: ON_TIME, setup: () => stageOnMyWay('found') },
-  { title: 'Team chat', detail: 'Live location and a challenge to join', to: '/explore/pins/p_griffith/on-my-way', debug: ON_TIME, setup: () => stageOnMyWay('chat') },
-  { title: 'Everyone’s here', detail: 'Take the photo', to: '/explore/pins/p_griffith/on-my-way', debug: ON_TIME, setup: () => stageOnMyWay('arrived') },
+// Find a squad: matchmaking from a pin's page, the offer, then the squad's own page
+const G = '/explore/pins/p_griffith'
+const squad: Jump[] = [
+  { title: 'Pin page, not there yet', detail: 'Griffith Observatory · challenges, Directions and Find a squad', to: G, debug: ON_TIME, collect: { p_griffith: false }, setup: () => stageSquad('idle') },
+  { title: 'Finding a squad', detail: 'The overlay over the pin page, with Shake', to: G, debug: ON_TIME, collect: { p_griffith: false }, setup: () => stageSquad('matching') },
+  { title: 'Squad found', detail: 'Who and how far · Pass or Join', to: G, debug: ON_TIME, collect: { p_griffith: false }, setup: () => stageSquad('offer') },
+  { title: 'Squad page', detail: 'Everyone’s route, challenges together, the chat', to: `${G}/squad`, debug: ON_TIME, collect: { p_griffith: false }, setup: () => stageSquad('squad') },
+  { title: 'Everyone’s here', detail: 'Take the photo', to: `${G}/squad`, debug: ON_TIME, collect: { p_griffith: false }, setup: () => stageSquad('arrived') },
 ]
 
 // Watch party: plan (Tonight, the party stack), the page before you go, then at the party
@@ -183,8 +184,8 @@ export default function DevFlowsPage() {
       </header>
 
       <div className="no-scrollbar min-h-0 flex-1 space-y-7 overflow-y-auto overscroll-contain px-4 pt-2 pb-[max(env(safe-area-inset-bottom),24px)]">
-        <Section icon={Footprints} title="On my way">
-          {onMyWay.map((j) => (
+        <Section icon={Footprints} title="Find a squad">
+          {squad.map((j) => (
             <JumpRow key={j.title} jump={j} onGo={go} />
           ))}
         </Section>

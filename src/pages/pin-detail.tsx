@@ -16,6 +16,8 @@ import { useFanLocation } from '@/lib/location'
 import { useBonusMarks } from '@/lib/bonuses'
 import { bonusesFor } from '@/data/bonuses'
 import { cn } from '@/lib/utils'
+import { ChallengeRow, MatchOverlay } from '@/features/on-my-way/screens'
+import { startMatching, useOnMyWay } from '@/features/on-my-way/state'
 import { activityAt, flag, pinById, pinKindLabel, placeById, reviewsFor, type Review } from '@/data/la28'
 import { formatKm, formatMinutes, travelFromYou, type LngLat } from '@/data/map-layers'
 
@@ -36,6 +38,8 @@ export default function PinDetailPage() {
   const marks = useBonusMarks()
   const here = useFanLocation()
   const pin = pinById(pinId)
+  const squad = useOnMyWay()
+  const matching = squad.pinId === pinId && (squad.step === 'matching' || squad.step === 'offer')
 
   if (!pin) return <Navigate to="/explore" replace />
 
@@ -104,6 +108,10 @@ export default function PinDetailPage() {
             </Section>
           )}
 
+          <Section title="Challenges">
+            <ChallengeRow pinId={pin.id} />
+          </Section>
+
           <Section title="About the place">
             {place.about && <p className="text-sm text-muted-foreground">{place.about}</p>}
             <ul className="mt-3 space-y-1.5 text-sm">
@@ -170,12 +178,18 @@ export default function PinDetailPage() {
         </div>
       </div>
 
-      <CollectPanel
-        pin={pin}
-        placeName={place.name}
-        collected={done}
-        onCollect={() => navigate(`/explore/pins/${pin.id}/capture`)}
-      />
+      {matching ? (
+        <MatchOverlay />
+      ) : (
+        <CollectPanel
+          pin={pin}
+          placeName={place.name}
+          collected={done}
+          onCollect={() => navigate(`/explore/pins/${pin.id}/capture`)}
+          directions={directions}
+          onFindSquad={() => startMatching(pin.id)}
+        />
+      )}
     </div>
   )
 }

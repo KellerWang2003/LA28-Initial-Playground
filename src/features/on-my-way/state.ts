@@ -4,12 +4,12 @@ import { bonusesFor, type Bonus } from '@/data/bonuses'
 import { nowMs } from '@/lib/clock'
 import { moveFan } from '@/lib/location'
 
-// On my way: tap it on a pin's sheet before you get there, and matchmaking starts while
-// you're on the way. It finds fans heading to the same pin, the squad shows up on the map
-// with their ETAs, and the team chat is where you plan challenges before anyone arrives
-// and watch everyone close in. In-memory only.
+// Find a squad: from a pin's detail page, before you get there. Matchmaking runs in an
+// overlay while you keep browsing, finds fans heading to the same pin, and offers you the
+// squad. Only once you join does the squad get its own page: everyone's route and ETA,
+// the challenges to do together, and the chat. In-memory only.
 
-export type Step = 'pin' | 'matching' | 'found' | 'chat'
+export type Step = 'idle' | 'matching' | 'offer' | 'squad'
 
 export type Member = {
   id: string
@@ -61,7 +61,7 @@ export const DEMO_PIN = 'p_griffith'
 
 const initial = (pinId = DEMO_PIN): State => ({
   pinId,
-  step: 'pin',
+  step: 'idle',
   startedAt: null,
   messages: [],
   inFor: {},
@@ -143,17 +143,23 @@ export function openOnMyWay(pinId: string) {
   update(initial(pinId))
 }
 
-// On my way: the trip starts and matchmaking runs while you walk
-export function startTrip() {
+// Find a squad: matchmaking runs while you head there
+export function startMatching(pinId: string) {
   clearTimers()
-  update({ step: 'matching', startedAt: nowMs() })
+  update({ ...initial(pinId), step: 'matching', startedAt: nowMs() })
   later(5200, matched)
 }
 
-// Stop matching and go back to the pin
-export function cancelTrip() {
+// Stop matching, or pass on the squad offered
+export function cancelMatching() {
   clearTimers()
-  update({ step: 'pin', startedAt: null })
+  update({ step: 'idle', startedAt: null })
+}
+
+// Join the squad offered: it gets its own page, and the chat starts
+export function joinSquad() {
+  update({ step: 'squad' })
+  seedChat(true)
 }
 
 // Shake the phone (or tap the shake button): match with whoever is close, right away
@@ -164,16 +170,7 @@ export function shakeToMatch() {
 }
 
 function matched() {
-  update({ step: 'found' })
-  seedChat(true)
-}
-
-export function openChat() {
-  update({ step: 'chat' })
-}
-
-export function backTo(step: Step) {
-  update({ step })
+  update({ step: 'offer' })
 }
 
 function say(from: Message['from'], text?: string, challenge?: string) {
@@ -230,21 +227,18 @@ export function send(text: string) {
 
 // ---- Flow gallery jumps ----
 
-export type OnMyWayJump = 'pin' | 'matching' | 'found' | 'chat' | 'arrived'
+export type SquadJump = 'idle' | 'matching' | 'offer' | 'squad' | 'arrived'
 
-export function stageOnMyWay(jump: OnMyWayJump) {
+export function stageSquad(jump: SquadJump) {
   clearTimers()
   replyAt = 0
   moveFan(null)
   update(initial(DEMO_PIN))
-  if (jump === 'pin') return
+  if (jump === 'idle') return
+  if (jump === 'matching') return startMatching(DEMO_PIN)
   // Start a few demo minutes in so routes have moved
-  update({ step: jump === 'arrived' ? 'chat' : jump, startedAt: nowMs() - (jump === 'arrived' ? 16 : 2) * DEMO_MINUTE_MS })
-  if (jump === 'matching') {
-    update({ startedAt: nowMs() })
-    later(5200, matched)
-    return
-  }
+  update({ step: jump === 'arrived' ? 'squad' : jump, startedAt: nowMs() - (jump === 'arrived' ? 16 : 2) * DEMO_MINUTE_MS })
+  if (jump === 'offer') return
   seedChat(false)
-  if (jump === 'chat' || jump === 'arrived') toggleIn(firstGroup())
+  toggleIn(firstGroup())
 }
