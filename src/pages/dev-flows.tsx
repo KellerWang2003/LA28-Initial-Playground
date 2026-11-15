@@ -12,7 +12,7 @@ import { setDebug, type DebugState } from '@/lib/debug'
 import { debugMoments } from '@/features/crowdplay/schedule'
 import { stageKeepGoing, type KeepStage } from '@/features/activity/keep-going-state'
 import { moveFan } from '@/lib/location'
-import { goTo, setCrowdPinLook } from '@/features/watch-party/parties'
+import { goTo } from '@/features/watch-party/parties'
 import { pinById, placeById } from '@/data/la28'
 import { BONUSES, bonusById, bonusKindTitle, type Bonus, type BonusKind } from '@/data/bonuses'
 
@@ -94,12 +94,10 @@ const PLAY = '/events/tonight/grandpark/play'
 const AT_HALFTIME = { ...ON_TIME, time: '2028-07-20T21:15' }
 const watchParty: Jump[] = [
   { title: 'Tonight on Activities', detail: 'Brazil vs Morocco and the crowds heading to each party', to: '/events', debug: ON_TIME, at: null, setup: () => goTo(null) },
-  { title: 'Swipe the parties', detail: 'The crowd pin, Sign up', to: '/events/tonight', debug: ON_TIME, at: null, setup: () => { goTo(null); setCrowdPinLook('sweep') } },
-  { title: 'Swipe the parties, splash pins', detail: 'The crowd pin’s border in splashes', to: '/events/tonight', debug: ON_TIME, at: null, setup: () => { goTo(null); setCrowdPinLook('splash') } },
-  { title: 'Party page, going', detail: 'Grand Park screening · the crowd pin, what you can do, getting there', to: '/events/tonight/grandpark', debug: ON_TIME, at: null, setup: () => { goTo('grandpark'); setCrowdPinLook('sweep') } },
-  { title: 'Party page, splash pin', detail: 'The same page with the splash border', to: '/events/tonight/grandpark', debug: ON_TIME, at: null, setup: () => { goTo('grandpark'); setCrowdPinLook('splash') } },
+  { title: 'Swipe the parties', detail: 'The crowd pin, Sign up', to: '/events/tonight', debug: ON_TIME, at: null, setup: () => goTo(null) },
+  { title: 'Party page, going', detail: 'Grand Park screening · the crowd pin, what you can do, getting there', to: '/events/tonight/grandpark', debug: ON_TIME, at: null, setup: () => goTo('grandpark') },
   { title: 'Arrived: Activities', detail: '9:05 PM · the Tonight card says welcome', to: '/events', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => goTo('grandpark') },
-  { title: 'Arrived: the party page', detail: '9:05 PM · same page, the header says welcome', to: '/events/tonight/grandpark', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => { goTo('grandpark'); setCrowdPinLook('sweep') } },
+  { title: 'Arrived: the party page', detail: '9:05 PM · same page, the header says welcome', to: '/events/tonight/grandpark', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => goTo('grandpark') },
   { title: 'CrowdPlay lobby', detail: 'Look up, pick a side', to: PLAY, debug: AT_HALFTIME, at: 'grandpark' },
   { title: 'CrowdPlay swim race', detail: 'Tap to swim', to: `${PLAY}?step=race`, debug: AT_HALFTIME, at: 'grandpark' },
   { title: 'CrowdPlay trivia', detail: 'Four big answers', to: `${PLAY}?step=trivia`, debug: AT_HALFTIME, at: 'grandpark' },

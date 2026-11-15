@@ -220,7 +220,7 @@ export function PartyCard({ party, active, joining, onSignUp }: { party: Party; 
           onPointerDown={(e) => e.stopPropagation()}
           className={cn('transition-transform active:scale-95', joining && 'animate-pop')}
         >
-          <CrowdPin key={people.length} shape="tv" people={people} className="size-56" />
+          <CrowdPin key={people.length} shape={party.shape} people={people} className="size-48" />
         </button>
       </div>
 

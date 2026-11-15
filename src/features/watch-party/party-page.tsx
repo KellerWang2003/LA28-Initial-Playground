@@ -64,9 +64,9 @@ export function PartyPage({ party }: { party: Party }) {
             type="button"
             aria-label="Who’s going"
             onClick={() => setWho(true)}
-            className="relative -mt-14 rounded-full border bg-background p-3.5 shadow-sm transition-transform active:scale-95"
+            className="relative -mt-16 rounded-full bg-background p-1.5 shadow-md transition-transform active:scale-95"
           >
-            <CrowdPin shape="tv" people={people} className="size-24" />
+            <CrowdPin shape={party.shape} people={people} className="size-28" />
           </button>
           <h1 className="mt-3 font-heading text-3xl leading-tight font-semibold">{party.title}</h1>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
@@ -94,7 +94,7 @@ export function PartyPage({ party }: { party: Party }) {
           <Section title="What you can do">
             <ul className="grid grid-cols-2 gap-3">
               {party.crowdPlay && <Tile icon={<Gamepad2 />} label="CrowdPlay" value={here ? play.label : 'Halftime'} dark />}
-              <Tile icon={<PinShape shape="tv" status={here ? 'open' : 'locked'} className="size-8" />} label="Party pin" />
+              <Tile icon={<PinShape shape={party.shape} status={here ? 'open' : 'locked'} className="size-8" />} label="Party pin" />
               <Tile icon={<Tv />} label="Big screen" />
               <Tile icon={<UtensilsCrossed />} label="Food trucks" />
             </ul>
@@ -108,7 +108,7 @@ export function PartyPage({ party }: { party: Party }) {
                   { id: 'me', coords: fan },
                   { id: 'place', coords },
                 ]}
-                renderMarker={(id) => (id === 'me' ? <UserDot /> : <PinShape shape="tv" status={here ? 'open' : 'locked'} className="size-9 drop-shadow" />)}
+                renderMarker={(id) => (id === 'me' ? <UserDot /> : <PinShape shape={party.shape} status={here ? 'open' : 'locked'} className="size-9 drop-shadow" />)}
                 initialBounds={[fan, coords]}
                 initialPadding={MAP_PADDING}
               />

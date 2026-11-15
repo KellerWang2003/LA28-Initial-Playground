@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import type { Shape } from '@/data/la28'
 import { makeCrowd, type Person } from './crowd'
 
 // Tonight's watch parties for Brazil vs Morocco (8:30 PM): a free screening in a park, a
@@ -11,6 +12,8 @@ export type Party = {
   title: string
   place: string
   kind: 'Free screening' | 'Picnic' | 'Shop'
+  // The party's pin
+  shape: Shape
   host?: { name: string; cc: string }
   doors: string
   // On the Tonight map, 0–100 in both directions
@@ -28,6 +31,7 @@ export const PARTIES: Party[] = [
     title: 'Grand Park screening',
     place: 'grandpark',
     kind: 'Free screening',
+    shape: 'star',
     doors: '20:00',
     at: [62, 46],
     going: 1240,
@@ -39,6 +43,7 @@ export const PARTIES: Party[] = [
     title: 'Lakeside picnic',
     place: 'echolake',
     kind: 'Picnic',
+    shape: 'boat',
     host: { name: 'Yasmine', cc: 'MA' },
     doors: '19:45',
     at: [36, 22],
@@ -51,6 +56,7 @@ export const PARTIES: Party[] = [
     title: 'Tacos and the match',
     place: 'sol',
     kind: 'Shop',
+    shape: 'taco',
     host: { name: 'Rosa', cc: 'MX' },
     doors: '20:00',
     at: [82, 60],
@@ -79,14 +85,3 @@ export function goTo(id: string | null) {
   listeners.forEach((l) => l())
 }
 
-// ---- How the crowd pin's border is painted (exploring two looks) ----
-
-export type PinLook = 'sweep' | 'splash'
-let look: PinLook = 'sweep'
-
-export const useCrowdPinLook = () => useSyncExternalStore(subscribe, () => look)
-
-export function setCrowdPinLook(next: PinLook) {
-  look = next
-  listeners.forEach((l) => l())
-}

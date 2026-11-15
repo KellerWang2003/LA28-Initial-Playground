@@ -3,136 +3,88 @@ import { ShapeIcon } from '@/components/shape-art'
 import type { Shape } from '@/data/la28'
 import { cn } from '@/lib/utils'
 import type { Person } from './crowd'
-import { useCrowdPinLook, type PinLook } from './parties'
 
-// Who's going, as the party's pin: a thick border painted with the crowd's colors (the three
-// biggest groups), with the inside left blank for the pin's own art. Two looks for now: one
-// clean sweep, or splashes. It reads as a mix, not a count. Tap it to see the crowd in detail.
+// Who's going, as the party's round icon (like a project icon): a circle washed in the crowd's
+// colors, blurred and grainy like a print, with the party's icon in the middle. The three
+// biggest groups set the colors, so it reads as a mix, not a count. Tap it for the details.
 
-// One clean color per country, then a second to fall back on when the first is taken
-const COLORS: Record<string, string[]> = {
-  BR: ['#22c55e', '#facc15'],
-  MA: ['#ef4444', '#16a34a'],
-  US: ['#3b82f6', '#ef4444'],
-  MX: ['#10b981', '#ef4444'],
-  FR: ['#2563eb', '#ef4444'],
-  JP: ['#f43f5e'],
-  KR: ['#3b82f6', '#ef4444'],
-  GB: ['#2563eb', '#ef4444'],
-  AR: ['#38bdf8', '#facc15'],
-  DZ: ['#16a34a', '#ef4444'],
-  ES: ['#f59e0b', '#ef4444'],
-  CO: ['#facc15', '#2563eb'],
-  PT: ['#16a34a', '#ef4444'],
+// Each country's colors, as hues from its flag (softened below)
+const HUES: Record<string, number[]> = {
+  BR: [140, 50],
+  MA: [355, 145],
+  US: [218, 355],
+  MX: [160, 350],
+  FR: [225, 355],
+  JP: [350],
+  KR: [215, 355],
+  GB: [225, 355],
+  AR: [200, 48],
+  DZ: [145, 355],
+  ES: [40, 355],
+  CO: [50, 225],
+  PT: [145, 355],
 }
 
-function hsl(hex: string): [number, number, number] {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
-  const max = Math.max(r, g, b)
-  const min = Math.min(r, g, b)
-  const d = max - min
-  const l = (max + min) / 2
-  if (d === 0) return [0, 0, l * 100]
-  const sat = d / (1 - Math.abs(2 * l - 1))
-  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
-  return [(h * 60 + 360) % 360, sat * 100, l * 100]
-}
-const hue = (hex: string) => hsl(hex)[0]
+const gap = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
 
-// Stops from one color to the next that travel around the color wheel instead of straight
-// through it, so red to green passes orange and yellow, not brown
-function sweepStops(three: string[]) {
-  // The two farthest apart go at the ends, so each step is a short one
-  const gap = (x: string, y: string) => {
-    const d = Math.abs(hue(x) - hue(y))
-    return Math.min(d, 360 - d)
-  }
-  const [x, y, z] = three
-  const ends = [[x, z, y], [x, y, z], [y, x, z]].sort((p, q) => gap(q[0], q[2]) - gap(p[0], p[2]))[0]
-  const colors = ends
-  const stops: { offset: number; color: string }[] = []
-  const STEPS = 6
-  colors.slice(0, -1).forEach((from, i) => {
-    const [h1, s1, l1] = hsl(from)
-    const [h2, s2, l2] = hsl(colors[i + 1])
-    const dh = ((h2 - h1 + 540) % 360) - 180
-    for (let k = 0; k <= STEPS; k++) {
-      if (i > 0 && k === 0) continue
-      const t = k / STEPS
-      stops.push({
-        offset: (i + t) / (colors.length - 1),
-        color: `hsl(${(h1 + dh * t + 360) % 360} ${s1 + (s2 - s1) * t}% ${l1 + (l2 - l1) * t}%)`,
-      })
-    }
-  })
-  return stops
-}
-const apart = (a: string, b: string) => {
-  const d = Math.abs(hue(a) - hue(b))
-  return Math.min(d, 360 - d) >= 45
-}
-
-// The three biggest groups' colors, kept far enough apart to stay clean
-function crowdColors(people: Person[]): string[] {
+// The three biggest groups' hues, kept far enough apart that they don't muddy each other
+function crowdHues(people: Person[]): number[] {
   const counts = new Map<string, number>()
   people.forEach((p) => counts.set(p.cc, (counts.get(p.cc) ?? 0) + 1))
-  const picked: string[] = []
+  const picked: number[] = []
   for (const [cc] of [...counts].sort((a, b) => b[1] - a[1])) {
-    const color = (COLORS[cc] ?? []).find((c) => picked.every((p) => apart(p, c)))
-    if (color) picked.push(color)
+    const h = (HUES[cc] ?? []).find((c) => picked.every((p) => gap(p, c) >= 45))
+    if (h !== undefined) picked.push(h)
     if (picked.length === 3) break
   }
-  for (const fallback of ['#3b82f6', '#ef4444', '#facc15']) if (picked.length < 3 && picked.every((p) => apart(p, fallback))) picked.push(fallback)
-  return picked
+  for (const fallback of [220, 350, 45]) if (picked.length < 3 && picked.every((p) => gap(p, fallback) >= 45)) picked.push(fallback)
+  // The two closest hues sit next to each other (they blend cleanly); the third gets its own corner
+  const [a, b, c] = picked
+  const orders = [[a, b, c], [b, a, c], [c, a, b]]
+  return orders.sort((p, q) => gap(p[1], p[2]) - gap(q[1], q[2]))[0]
 }
 
-// Where the splashes land, in the pin's 24-unit box
-const SPOTS = [
-  { x: 4, y: 20, r: 13 },
-  { x: 21, y: 6, r: 12 },
-  { x: 20, y: 22, r: 9 },
+// Where each color sits across the circle's 24-unit box. The middle and one corner fade to
+// light, like a blurred print, so the icon stays clear.
+const WASHES = [
+  { x: 1, y: 21, r: 9, c: 0 },
+  { x: 22, y: 4, r: 9, c: 1 },
+  { x: 21, y: 20, r: 7, c: 2 },
 ]
 
-export function CrowdPin({ shape, people, look: forced, className }: { shape: Shape; people: Person[]; look?: PinLook; className?: string }) {
+const ink = (h: number) => `hsl(${h} 78% 62%)`
+
+export function CrowdPin({ shape, people, className }: { shape: Shape; people: Person[]; className?: string }) {
   const id = useId().replace(/:/g, '')
-  const current = useCrowdPinLook()
-  const look = forced ?? current
-  const [a, b, c] = crowdColors(people)
+  const hues = crowdHues(people)
   return (
-    <span className={cn('relative inline-block shrink-0', className)} aria-hidden>
-      {/* The die-cut white edge, like every pin */}
-      <ShapeIcon shape={shape} strokeWidth={8} className="absolute inset-0 size-full overflow-visible text-background drop-shadow-md" />
-      <svg viewBox="0 0 24 24" className="absolute inset-0 size-full overflow-visible">
+    <span className={cn('relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full shadow-sm ring-1 ring-black/5', className)} aria-hidden>
+      <svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 size-full">
         <defs>
-          <mask id={`m${id}`} maskUnits="userSpaceOnUse" x="-6" y="-6" width="36" height="36">
-            <ShapeIcon shape={shape} strokeWidth={4} className="overflow-visible text-white" />
-          </mask>
-          <linearGradient id={`l${id}`} gradientUnits="userSpaceOnUse" x1="4" y1="4" x2="20" y2="20">
-            {sweepStops([a, b, c]).map((st) => (
-              <stop key={st.offset} offset={st.offset} stopColor={st.color} />
-            ))}
-          </linearGradient>
-          {SPOTS.map((s, i) => (
-            <radialGradient key={i} id={`r${id}${i}`} gradientUnits="userSpaceOnUse" cx={s.x} cy={s.y} r={s.r}>
-              <stop offset="0" stopColor={[a, b, c][i]} />
-              <stop offset="0.82" stopColor={[a, b, c][i]} />
-              <stop offset="1" stopColor={[a, b, c][i]} stopOpacity="0" />
-            </radialGradient>
-          ))}
+          {/* Blur the colors into each other, then add grain on top */}
+          <filter id={`f${id}`} x="-6" y="-6" width="36" height="36" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="soft" />
+            <feTurbulence type="fractalNoise" baseFrequency="7" numOctaves="2" seed="7" />
+            <feColorMatrix type="saturate" values="0" />
+            <feComponentTransfer result="grain">
+              <feFuncR type="linear" slope="2" intercept="-0.5" />
+              <feFuncG type="linear" slope="2" intercept="-0.5" />
+              <feFuncB type="linear" slope="2" intercept="-0.5" />
+              <feFuncA type="linear" slope="0" intercept="1" />
+            </feComponentTransfer>
+            <feBlend in="grain" in2="soft" mode="soft-light" result="grainy" />
+            <feComposite in="grainy" in2="soft" operator="in" />
+          </filter>
         </defs>
-        <g mask={`url(#m${id})`}>
-          {look === 'sweep' ? (
-            <rect x="-6" y="-6" width="36" height="36" fill={`url(#l${id})`} />
-          ) : (
-            <>
-              <rect x="-6" y="-6" width="36" height="36" fill={b} />
-              {SPOTS.map((s, i) => (
-                <circle key={i} cx={s.x} cy={s.y} r={s.r} fill={`url(#r${id}${i})`} />
-              ))}
-            </>
-          )}
+        <g filter={`url(#f${id})`}>
+          <rect x="-6" y="-6" width="36" height="36" fill="#f6f3f1" />
+          {WASHES.map((w, i) => (
+            <circle key={i} cx={w.x} cy={w.y} r={w.r} fill={ink(hues[w.c])} />
+          ))}
         </g>
       </svg>
+      {/* The party's icon, simple, in the middle */}
+      <ShapeIcon shape={shape} strokeWidth={1.75} className="relative size-[42%] text-foreground" />
     </span>
   )
 }
