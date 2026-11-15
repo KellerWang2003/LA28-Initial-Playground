@@ -1,19 +1,18 @@
-import { useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { ChevronRight, MapPin, Users } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import type { CSSProperties, ReactNode } from 'react'
+import { Link } from 'react-router'
+import { Check, ChevronRight, Footprints, MapPin, Users } from 'lucide-react'
+import { ImagePlaceholder } from '@/components/image-placeholder'
 import { COLLECT_RADIUS_M, flag, formatTime, placeById } from '@/data/la28'
 import { formatMinutes, travelFromYou } from '@/data/map-layers'
 import { metersBetween, placeCoords, useFanLocation } from '@/lib/location'
 import { useProfile } from '@/lib/profile'
 import { cn } from '@/lib/utils'
 import { you } from './crowd'
-import { GAME, PARTIES, goTo, useGoingTo, type Party } from './parties'
+import { GAME, PARTIES, useGoingTo, type Party } from './parties'
 import { CrowdPin } from './crowd-pin'
-import { WhoSheet } from './who-sheet'
 
 // Tonight's watch parties: a card on Activities with the crowds heading to each party, and
-// a stack of party cards you swipe through, each with who's going and Sign up.
+// a simple list of party cards to scroll through.
 
 export function Matchup({ className }: { className?: string }) {
   return (
@@ -132,113 +131,62 @@ export function TonightCard() {
   )
 }
 
-// ---- The swipe stack ----
+// ---- Tonight's parties: a simple list of cards ----
 
-export function PartyStack() {
-  const navigate = useNavigate()
-  const [index, setIndex] = useState(0)
-  const [dx, setDx] = useState<number | null>(null)
-  const [start, setStart] = useState(0)
-  const [joining, setJoining] = useState<string | null>(null)
-
-  function down(e: PointerEvent) {
-    if (joining) return
-    setStart(e.clientX)
-    setDx(0)
-  }
-  function move(e: PointerEvent) {
-    if (dx === null) return
-    setDx(e.clientX - start)
-  }
-  function up() {
-    if (dx === null) return
-    if (dx < -70 && index < PARTIES.length - 1) setIndex(index + 1)
-    if (dx > 70 && index > 0) setIndex(index - 1)
-    setDx(null)
-  }
-
-  function signUp(p: Party) {
-    setJoining(p.id)
-    goTo(p.id)
-    window.setTimeout(() => navigate(`/events/tonight/${p.id}`), 1600)
-  }
-
+export function PartyList() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="relative min-h-0 flex-1 touch-pan-y" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
-        {PARTIES.map((p, i) => {
-          const offset = i - index
-          if (offset < -1 || offset > 2) return null
-          const drag = i === index && dx !== null ? dx : 0
-          return (
-            <div
-              key={p.id}
-              className={cn('absolute inset-x-4 top-0 bottom-2', dx === null && 'transition-transform duration-300 ease-out')}
-              style={{
-                zIndex: 10 - Math.abs(offset),
-                transform:
-                  offset < 0
-                    ? 'translateX(-110%) rotate(-6deg)'
-                    : `translateX(${drag + offset * 14}px) translateY(${offset * 10}px) scale(${1 - offset * 0.04}) rotate(${drag / 30}deg)`,
-              }}
-            >
-              <PartyCard party={p} active={i === index} joining={joining === p.id} onSignUp={() => signUp(p)} />
-            </div>
-          )
-        })}
-      </div>
-      <div className="flex shrink-0 justify-center gap-1.5 py-3" aria-hidden>
-        {PARTIES.map((p, i) => (
-          <span key={p.id} className={cn('h-2 rounded-full transition-all', i === index ? 'w-6 bg-foreground' : 'w-2 bg-muted-foreground/30')} />
-        ))}
-      </div>
-    </div>
+    <ul className="space-y-3 px-4 pb-[max(env(safe-area-inset-bottom),24px)]">
+      {PARTIES.map((p) => (
+        <li key={p.id}>
+          <PartyCard party={p} />
+        </li>
+      ))}
+    </ul>
   )
 }
 
-export function PartyCard({ party, active, joining, onSignUp }: { party: Party; active: boolean; joining?: boolean; onSignUp?: () => void }) {
+// One party: its crowd icon, the name, where and how far, how many are going
+function PartyCard({ party }: { party: Party }) {
   const profile = useProfile()
-  const [who, setWho] = useState(false)
-  const here = useFanLocation()
+  const goingTo = useGoingTo()
+  const fan = useFanLocation()
   const place = placeById(party.place)
-  const trip = travelFromYou([place.lng, place.lat], here)
-  const people = joining ? [...party.crowd, you(profile.country, profile.spoken)] : party.crowd
+  const trip = travelFromYou([place.lng, place.lat], fan)
+  const going = goingTo === party.id
+  const people = going ? [...party.crowd, you(profile.country, profile.spoken)] : party.crowd
 
   return (
-    <article className={cn('flex h-full flex-col overflow-hidden rounded-3xl border-2 bg-background shadow-xl', active ? 'border-foreground' : 'border-border')}>
-      <div className="flex shrink-0 flex-col items-center px-4 pt-4 text-center">
-        <span className="rounded-full bg-card px-3 py-1 text-sm font-semibold">{party.kind}</span>
-        <h2 className="mt-2 font-heading text-2xl leading-tight font-semibold">{party.title}</h2>
+    <Link to={`/events/tonight/${party.id}`} className="block overflow-hidden rounded-3xl bg-card active:scale-[0.99]">
+      <div className="relative">
+        <ImagePlaceholder className="h-36 w-full rounded-none border-0 bg-background/40" />
+        <span className="absolute top-3 left-3 flex h-8 items-center rounded-full bg-background px-3 text-sm font-semibold">{party.kind}</span>
       </div>
-
-      {/* Who's going: the party's pin in the crowd's colors. Tap for the details. */}
-      <div className="flex min-h-0 flex-1 items-center justify-center">
-        <button
-          type="button"
-          aria-label="Who’s going"
-          onClick={() => setWho(true)}
-          onPointerDown={(e) => e.stopPropagation()}
-          className={cn('transition-transform active:scale-95', joining && 'animate-pop')}
-        >
-          <CrowdPin key={people.length} shape={party.shape} people={people} className="size-48" />
-        </button>
-      </div>
-
-      <div className="m-2 mt-0 shrink-0 rounded-[1.25rem] bg-card p-3">
-        <div className="flex items-center gap-2 px-1 text-sm font-semibold">
-          <MapPin className="size-4 shrink-0" />
-          <span className="truncate">{place.name}</span>
-          <span className="ml-auto flex shrink-0 items-center gap-1 tabular-nums">
-            <Users className="size-4" />
-            {party.going.toLocaleString()}
-          </span>
-          <span className="shrink-0 rounded-full bg-background px-2 py-0.5 tabular-nums">{formatMinutes(trip.walk)}</span>
+      <div className="flex items-center gap-3 p-4">
+        <CrowdPin shape={party.shape} people={people} className="-mt-12 size-16 shrink-0 ring-4 ring-card" />
+        <div className="min-w-0 flex-1">
+          <p className="font-heading text-lg leading-tight font-semibold">{party.title}</p>
         </div>
-        <Button size="lg" className="mt-3 h-14 w-full rounded-full text-lg" disabled={joining} onClick={onSignUp} onPointerDown={(e) => e.stopPropagation()}>
-          {joining ? 'Going' : 'Sign up'}
-        </Button>
+        {going && (
+          <span className="flex h-8 shrink-0 items-center gap-1 rounded-full bg-foreground px-3 text-sm font-semibold text-background">
+            <Check className="size-4" />
+            Going
+          </span>
+        )}
       </div>
-      {who && <WhoSheet people={people} onClose={() => setWho(false)} />}
-    </article>
+      <div className="flex items-center gap-4 px-4 pb-4 text-base font-medium tabular-nums">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <MapPin className="size-5 shrink-0" />
+          <span className="truncate">{place.name}</span>
+        </span>
+        <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          <Footprints className="size-5" />
+          {formatMinutes(trip.walk)}
+        </span>
+        <span className="flex shrink-0 items-center gap-1.5">
+          <Users className="size-5" />
+          {party.going.toLocaleString()}
+        </span>
+      </div>
+    </Link>
   )
 }

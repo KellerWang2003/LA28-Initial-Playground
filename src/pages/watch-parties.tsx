@@ -1,12 +1,12 @@
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router'
 import { ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Matchup, PartyStack } from '@/features/watch-party/tonight'
+import { Matchup, PartyList } from '@/features/watch-party/tonight'
 import { PartyPage } from '@/features/watch-party/party-page'
 import { CrowdPlay } from '@/features/watch-party/crowd-play'
 import { partyById } from '@/features/watch-party/parties'
 
-// Tonight's watch parties: swipe through the parties showing the game, see who's going, sign up
+// Tonight's watch parties: a list of the parties showing the game
 export default function WatchPartiesPage() {
   const navigate = useNavigate()
   return (
@@ -17,7 +17,9 @@ export default function WatchPartiesPage() {
         </Button>
         <Matchup className="text-lg" />
       </header>
-      <PartyStack />
+      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pt-2">
+        <PartyList />
+      </div>
     </div>
   )
 }

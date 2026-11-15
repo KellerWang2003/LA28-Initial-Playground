@@ -58,7 +58,7 @@ export function CrowdPin({ shape, people, className }: { shape: Shape; people: P
   const id = useId().replace(/:/g, '')
   const hues = crowdHues(people)
   return (
-    <span className={cn('relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full shadow-sm ring-1 ring-black/5', className)} aria-hidden>
+    <span className={cn('relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full', className)} aria-hidden>
       <svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 size-full">
         <defs>
           {/* Blur the colors into each other, then add grain on top */}

@@ -28,7 +28,7 @@ export type Party = {
 export const PARTIES: Party[] = [
   {
     id: 'grandpark',
-    title: 'Grand Park screening',
+    title: 'Grand Park watch party',
     place: 'grandpark',
     kind: 'Free screening',
     shape: 'star',
@@ -40,7 +40,7 @@ export const PARTIES: Party[] = [
   },
   {
     id: 'echolake',
-    title: 'Lakeside picnic',
+    title: 'Echo Park watch party',
     place: 'echolake',
     kind: 'Picnic',
     shape: 'boat',
@@ -53,7 +53,7 @@ export const PARTIES: Party[] = [
   },
   {
     id: 'sol',
-    title: 'Tacos and the match',
+    title: 'Sol Tacos watch party',
     place: 'sol',
     kind: 'Shop',
     shape: 'taco',

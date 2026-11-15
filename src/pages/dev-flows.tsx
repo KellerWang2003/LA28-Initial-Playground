@@ -94,8 +94,9 @@ const PLAY = '/events/tonight/grandpark/play'
 const AT_HALFTIME = { ...ON_TIME, time: '2028-07-20T21:15' }
 const watchParty: Jump[] = [
   { title: 'Tonight on Activities', detail: 'Brazil vs Morocco and the crowds heading to each party', to: '/events', debug: ON_TIME, at: null, setup: () => goTo(null) },
-  { title: 'Swipe the parties', detail: 'The crowd pin, Sign up', to: '/events/tonight', debug: ON_TIME, at: null, setup: () => goTo(null) },
-  { title: 'Party page, going', detail: 'Grand Park screening · the crowd pin, what you can do, getting there', to: '/events/tonight/grandpark', debug: ON_TIME, at: null, setup: () => goTo('grandpark') },
+  { title: 'Tonight’s parties', detail: 'A list of party cards', to: '/events/tonight', debug: ON_TIME, at: null, setup: () => goTo(null) },
+  { title: 'Party page', detail: 'Grand Park watch party · Sign up and Directions', to: '/events/tonight/grandpark', debug: ON_TIME, at: null, setup: () => goTo(null) },
+  { title: 'Party page, going', detail: 'Grand Park watch party · the crowd pin, what you can do, getting there', to: '/events/tonight/grandpark', debug: ON_TIME, at: null, setup: () => goTo('grandpark') },
   { title: 'Arrived: Activities', detail: '9:05 PM · the Tonight card says welcome', to: '/events', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => goTo('grandpark') },
   { title: 'Arrived: the party page', detail: '9:05 PM · same page, the header says welcome', to: '/events/tonight/grandpark', debug: { ...ON_TIME, time: '2028-07-20T21:05' }, at: 'grandpark', setup: () => goTo('grandpark') },
   { title: 'CrowdPlay lobby', detail: 'Look up, pick a side', to: PLAY, debug: AT_HALFTIME, at: 'grandpark' },
