@@ -219,6 +219,13 @@
   /* Watch parties: a crowd blob swelling in, your bubble dropping into the crowd */
   --animate-blob-in: blob-in 0.6s cubic-bezier(0.34, 1.4, 0.5, 1) both;
   --animate-you-drop: you-drop 0.9s cubic-bezier(0.3, 1.5, 0.5, 1) 0.35s both;
+  /* Tonight map: a fan drifting into a party's crowd from (--dx, --dy) */
+  --animate-drift: drift 2.7s ease-in infinite;
+  @keyframes drift {
+    0% { transform: translate(var(--dx), var(--dy)); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translate(0, 0); opacity: 0; }
+  }
   @keyframes blob-in {
     0% { transform: scale(0.3); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }

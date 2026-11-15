@@ -247,7 +247,6 @@ export function FoundStep({ pin }: { pin: Pin }) {
             <li key={m.id} className="flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-sm font-medium">
               <span className="text-base leading-none">{flag(m.cc)}</span>
               {m.name}
-              <span className="text-muted-foreground">{m.city}</span>
             </li>
           ))}
         </ul>

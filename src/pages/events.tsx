@@ -21,6 +21,7 @@ import {
   type GameEvent,
   type Session,
 } from '@/data/la28'
+import { TonightCard } from '@/features/watch-party/tonight'
 import { KeepGoingStrip } from '@/features/activity/keep-going-strip'
 import { useKeepGoingOn } from '@/features/activity/keep-going-state'
 import { myActivities, upcoming, type Activity } from '@/features/activity/my-activities'
@@ -48,6 +49,10 @@ export default function EventsPage() {
       <PageHeader title="Activities" action={<TabActions search />} />
 
       <div className="space-y-6 pt-2">
+        <section>
+          <SectionTitle title="Tonight" />
+          <TonightCard />
+        </section>
         <MyActivities />
         <ForYou />
       </div>
