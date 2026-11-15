@@ -8,7 +8,7 @@ import { CrowdStage, type Picked } from './crowd-stage'
 
 // Who's going, opened from the crowd icon: the icon grows into a bigger card that stays at the
 // top of the screen, with everyone as bubbles you regroup by country, language or age
-export function WhoPanel({ shape, title, people, onClose }: { shape: Shape; title: string; people: Person[]; onClose: () => void }) {
+export function WhoPanel({ seed, shape, title, people, onClose }: { seed: string; shape: Shape; title: string; people: Person[]; onClose: () => void }) {
   const [by, setBy] = useState<Grouping>('country')
   const [picked, setPicked] = useState<Picked>(null)
 
@@ -28,7 +28,7 @@ export function WhoPanel({ shape, title, people, onClose }: { shape: Shape; titl
         className="absolute inset-x-3 top-[calc(env(safe-area-inset-top)+8px)] z-50 origin-top animate-in rounded-[2rem] border bg-background shadow-xl duration-300 fade-in zoom-in-90"
       >
         <div className="flex items-center gap-3 border-b px-4 py-3">
-          <CrowdPin shape={shape} people={people} className="size-10" />
+          <CrowdPin seed={seed} shape={shape} people={people} className="size-10" />
           <h2 className="min-w-0 flex-1 truncate font-heading text-lg font-semibold">{title}</h2>
           <button type="button" aria-label="Close" onClick={onClose} className="grid size-11 place-items-center rounded-full active:bg-card">
             <X className="size-6" />

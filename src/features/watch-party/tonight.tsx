@@ -157,12 +157,9 @@ function PartyCard({ party }: { party: Party }) {
 
   return (
     <Link to={`/events/tonight/${party.id}`} className="block overflow-hidden rounded-3xl bg-card active:scale-[0.99]">
-      <div className="relative">
-        <ImagePlaceholder className="h-36 w-full rounded-none border-0 bg-background/40" />
-        <span className="absolute top-3 left-3 flex h-8 items-center rounded-full bg-background px-3 text-sm font-semibold">{party.kind}</span>
-      </div>
+      <ImagePlaceholder className="h-36 w-full rounded-none border-0 bg-background/40" />
       <div className="flex items-center gap-3 p-4">
-        <CrowdPin shape={party.shape} people={people} className="-mt-12 size-16 shrink-0 ring-4 ring-card" />
+        <CrowdPin seed={party.id} shape={party.shape} people={people} className="-mt-12 size-16 shrink-0 ring-4 ring-card" />
         <div className="min-w-0 flex-1">
           <p className="font-heading text-lg leading-tight font-semibold">{party.title}</p>
         </div>

@@ -53,7 +53,7 @@ export function PartyPage({ party }: { party: Party }) {
             </Button>
             <div className="flex flex-col items-center">
               <button type="button" aria-label="Who’s going" onClick={() => setWho(true)} className="rounded-full transition-transform active:scale-95">
-                <CrowdPin shape={party.shape} people={people} className="size-20" />
+                <CrowdPin seed={party.id} shape={party.shape} people={people} className="size-20" />
               </button>
               <h1
                 className={cn(
@@ -77,24 +77,21 @@ export function PartyPage({ party }: { party: Party }) {
           </div>
         </header>
 
-        <div className="px-4">
-          <ImagePlaceholder className="h-48 w-full rounded-3xl border-0" />
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Chip>{party.kind}</Chip>
-            {(going || here) && (
-              <Chip dark>
-                <Check className="size-4" />
-                Going
-              </Chip>
-            )}
+        {/* The photo shows where it is. Once you're there, you don't need it */}
+        {!here && (
+          <div className="px-4">
+            <ImagePlaceholder className="h-48 w-full rounded-3xl border-0" />
           </div>
-        </div>
+        )}
 
-        <div className="space-y-8 px-4 pt-6">
+        <div className={cn('space-y-8 px-4', here ? 'pt-2' : 'pt-6')}>
           {/* The game, doors, and how many are going, in one slim row */}
           <div className="flex h-14 items-center justify-between rounded-2xl bg-card px-2 text-base font-semibold whitespace-nowrap tabular-nums">
             <span className={cn('flex h-10 items-center gap-1.5 rounded-full px-3', match && 'bg-foreground text-background')}>
-              <span className="text-xl leading-none">{flag(GAME.home)}{flag(GAME.away)}</span>
+              <span className="text-xl leading-none">
+                {flag(GAME.home)}
+                {flag(GAME.away)}
+              </span>
               {match ? `${match.home}–${match.away} · ${match.label}` : formatTime(GAME.kickoff)}
             </span>
             <span className="flex items-center gap-1.5 px-2">
@@ -107,51 +104,51 @@ export function PartyPage({ party }: { party: Party }) {
             </button>
           </div>
 
+          {/* Before you get there it's a short list of what's on. Once you're there it opens
+              up into the full board, and the tiles you can use open from it. */}
           <Section title="What you can do">
-            <ul className="grid grid-cols-2 gap-3">
-              {party.crowdPlay && (
-                <Tile
-                  icon={<Gamepad2 />}
-                  label="CrowdPlay"
-                  value={here ? play.label : 'Halftime'}
-                  dark
-                  onClick={here && !play.done ? () => navigate(`/events/tonight/${party.id}/play`) : undefined}
-                />
-              )}
-              <Tile
-                icon={<PinShape shape={party.shape} status={here ? 'open' : 'locked'} className="size-8" />}
-                label="Party pin"
-                value={here ? 'Open' : undefined}
-                onClick={here ? () => navigate('/explore') : undefined}
-              />
-              <Tile icon={<Tv />} label="Big screen" />
-              <Tile icon={<UtensilsCrossed />} label="Food trucks" />
-            </ul>
+            {here ? (
+              <ul className="grid grid-cols-2 gap-3">
+                {party.crowdPlay && <Tile icon={<Gamepad2 />} label="CrowdPlay" value={play.label} dark onClick={!play.done ? () => navigate(`/events/tonight/${party.id}/play`) : undefined} />}
+                <Tile icon={<PinShape shape={party.shape} status="open" className="size-8" />} label="Party pin" value="Open" onClick={() => navigate('/explore')} />
+                <Tile icon={<Tv />} label="Big screen" />
+                <Tile icon={<UtensilsCrossed />} label="Food trucks" />
+              </ul>
+            ) : (
+              <ul className="divide-y-4 divide-background overflow-hidden rounded-2xl bg-card">
+                {party.crowdPlay && <Row icon={<Gamepad2 />} label="CrowdPlay" value="Halftime" />}
+                <Row icon={<PinShape shape={party.shape} status="locked" className="size-7" />} label="Party pin" />
+                <Row icon={<Tv />} label="Big screen" />
+                <Row icon={<UtensilsCrossed />} label="Food trucks" />
+              </ul>
+            )}
           </Section>
 
-          <Section title="Getting there" aside={<span className="text-sm font-medium tabular-nums">{formatKm(trip.km)}</span>}>
-            <div className="h-44 overflow-hidden rounded-2xl bg-card">
-              <MapView
-                interactive={false}
-                markers={[
-                  { id: 'me', coords: fan },
-                  { id: 'place', coords },
-                ]}
-                renderMarker={(id) => (id === 'me' ? <UserDot /> : <PinShape shape={party.shape} status={here ? 'open' : 'locked'} className="size-9 drop-shadow" />)}
-                initialBounds={[fan, coords]}
-                initialPadding={MAP_PADDING}
-              />
-            </div>
-            <p className="mt-3 flex items-center gap-1.5 text-base font-medium">
-              <MapPin className="size-5 shrink-0" />
-              {place.name}
-            </p>
-            <ul className="mt-3 grid grid-cols-3 gap-2">
-              <TravelTime icon={<Footprints />} minutes={trip.walk} />
-              <TravelTime icon={<TramFront />} minutes={trip.transit} />
-              <TravelTime icon={<Car />} minutes={trip.drive} />
-            </ul>
-          </Section>
+          {!here && (
+            <Section title="Getting there" aside={<span className="text-sm font-medium tabular-nums">{formatKm(trip.km)}</span>}>
+              <div className="h-44 overflow-hidden rounded-2xl bg-card">
+                <MapView
+                  interactive={false}
+                  markers={[
+                    { id: 'me', coords: fan },
+                    { id: 'place', coords },
+                  ]}
+                  renderMarker={(id) => (id === 'me' ? <UserDot /> : <PinShape shape={party.shape} status={here ? 'open' : 'locked'} className="size-9 drop-shadow" />)}
+                  initialBounds={[fan, coords]}
+                  initialPadding={MAP_PADDING}
+                />
+              </div>
+              <p className="mt-3 flex items-center gap-1.5 text-base font-medium">
+                <MapPin className="size-5 shrink-0" />
+                {place.name}
+              </p>
+              <ul className="mt-3 grid grid-cols-3 gap-2">
+                <TravelTime icon={<Footprints />} minutes={trip.walk} />
+                <TravelTime icon={<TramFront />} minutes={trip.transit} />
+                <TravelTime icon={<Car />} minutes={trip.drive} />
+              </ul>
+            </Section>
+          )}
         </div>
       </div>
 
@@ -184,7 +181,7 @@ export function PartyPage({ party }: { party: Party }) {
         </div>
       )}
 
-      {who && <WhoPanel shape={party.shape} title={party.title} people={people} onClose={() => setWho(false)} />}
+      {who && <WhoPanel seed={party.id} shape={party.shape} title={party.title} people={people} onClose={() => setWho(false)} />}
     </div>
   )
 }
@@ -203,11 +200,13 @@ function Section({ title, aside, children }: { title: string; aside?: ReactNode;
   )
 }
 
-function Chip({ dark, children }: { dark?: boolean; children: ReactNode }) {
+function Row({ icon, label, value }: { icon: ReactNode; label: string; value?: string }) {
   return (
-    <span className={cn('flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold', dark ? 'bg-foreground text-background' : 'bg-card')}>
-      {children}
-    </span>
+    <li className="flex h-16 items-center gap-3 px-4 [&>svg]:size-6">
+      {icon}
+      <span className="font-heading text-lg font-semibold">{label}</span>
+      {value && <span className="ml-auto text-base font-semibold tabular-nums">{value}</span>}
+    </li>
   )
 }
 
@@ -227,7 +226,7 @@ function Tile({ icon, label, value, dark, onClick }: { icon: ReactNode; label: s
       {value && <span className="text-base font-semibold tabular-nums">{value}</span>}
     </>
   )
-  const look = cn('flex min-h-36 w-full flex-col gap-2 rounded-3xl p-4 text-left', dark ? 'bg-foreground text-background' : 'bg-card')
+  const look = cn('flex min-h-44 w-full flex-col gap-2 rounded-3xl p-4 text-left', dark ? 'bg-foreground text-background' : 'bg-card')
   return (
     <li>
       {onClick ? (
